@@ -1,8 +1,20 @@
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
+
+function HomePage() {
+  return <h1>Co-working Space Booking System</h1>;
+}
+
 function App() {
   return (
-    <div>
-      <h1>Co-working Space Booking System</h1>
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
