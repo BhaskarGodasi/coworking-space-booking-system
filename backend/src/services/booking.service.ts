@@ -57,6 +57,18 @@ export const bookingService = {
     return bookingRepository.findMany({ status });
   },
 
+  /**
+   * Ownership and future-date checks are pure validation against fields
+   * no concurrent request can change (userId, startTime are immutable
+   * after creation), so they are safe to check against the initial read.
+   * The status transition itself, however, is race-sensitive -- a
+   * concurrent approve()/reject() could move the booking out of
+   * PENDING/APPROVED between this read and the write below -- so it is
+   * expressed as a single atomic conditional UPDATE (transitionStatus)
+   * whose WHERE clause re-asserts the expected prior status. If that
+   * UPDATE affects zero rows, another request already won the race, and
+   * this call must not report success.
+   */
   async cancel(bookingId: string, userId: string) {
     const booking = await bookingRepository.findById(bookingId);
     if (!booking) {
@@ -67,22 +79,33 @@ export const bookingService = {
       throw new ForbiddenError("You can only cancel your own bookings");
     }
 
-    if (!ACTIVE_STATUSES.includes(booking.status)) {
-      throw new ValidationError("Only pending or approved bookings can be cancelled");
-    }
-
     if (booking.startTime.getTime() <= Date.now()) {
       throw new ValidationError("Only future bookings can be cancelled");
     }
 
-    return bookingRepository.updateStatus(bookingId, "CANCELLED", prisma);
+    const result = await prisma.$transaction((tx) =>
+      bookingRepository.transitionStatus(bookingId, ACTIVE_STATUSES, "CANCELLED", tx),
+    );
+
+    if (result.count === 0) {
+      throw new ValidationError("Only pending or approved bookings can be cancelled");
+    }
+
+    return bookingRepository.findById(bookingId);
   },
 
   /**
-   * Admin Approval flow: within one transaction, sets the target booking
-   * to APPROVED, then auto-rejects every other PENDING booking for the
-   * same space overlapping the approved range (Implementation Design v1.1
-   * "auto-rejects overlapping PENDING bookings").
+   * Admin Approval flow. Per System Architecture v1.1's Concurrency
+   * Architecture, the parent Space row is locked with SELECT ... FOR
+   * UPDATE for the duration of the transaction -- the same primitive
+   * booking creation uses -- so an approval and a concurrent creation for
+   * the same space now serialize against each other rather than each
+   * observing a stale, pre-commit view of the other's effect. Within that
+   * lock, the target booking is moved to APPROVED via the same atomic
+   * conditional UPDATE used by cancel()/reject(), and every other PENDING
+   * booking for the space overlapping the approved range is auto-rejected
+   * (Implementation Design v1.1: "auto-rejects overlapping PENDING
+   * bookings"), all inside the one transaction.
    */
   async approve(bookingId: string) {
     const booking = await bookingRepository.findById(bookingId);
@@ -90,12 +113,14 @@ export const bookingService = {
       throw new NotFoundError("Booking not found");
     }
 
-    if (booking.status !== "PENDING") {
-      throw new ValidationError("Only pending bookings can be approved");
-    }
-
     return prisma.$transaction(async (tx) => {
-      const approved = await bookingRepository.updateStatus(bookingId, "APPROVED", tx);
+      await bookingRepository.lockSpaceForUpdate(booking.spaceId, tx);
+
+      const result = await bookingRepository.transitionStatus(bookingId, ["PENDING"], "APPROVED", tx);
+      if (result.count === 0) {
+        throw new ValidationError("Only pending bookings can be approved");
+      }
+
       await bookingRepository.rejectOverlappingPending(
         booking.spaceId,
         booking.startTime,
@@ -103,7 +128,8 @@ export const bookingService = {
         bookingId,
         tx,
       );
-      return approved;
+
+      return bookingRepository.findById(bookingId, tx);
     });
   },
 
@@ -113,10 +139,14 @@ export const bookingService = {
       throw new NotFoundError("Booking not found");
     }
 
-    if (booking.status !== "PENDING") {
+    const result = await prisma.$transaction((tx) =>
+      bookingRepository.transitionStatus(bookingId, ["PENDING"], "REJECTED", tx),
+    );
+
+    if (result.count === 0) {
       throw new ValidationError("Only pending bookings can be rejected");
     }
 
-    return bookingRepository.updateStatus(bookingId, "REJECTED", prisma);
+    return bookingRepository.findById(bookingId);
   },
 };

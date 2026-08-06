@@ -78,8 +78,26 @@ export const bookingRepository = {
     });
   },
 
-  updateStatus(id: string, status: BookingStatus, tx: PrismaClientOrTx) {
-    return tx.booking.update({ where: { id }, data: { status } });
+  /**
+   * Atomic conditional transition: the WHERE clause re-asserts the
+   * expected current status as part of the same UPDATE statement, so the
+   * read-then-write is a single atomic operation at the database level.
+   * Of two concurrent calls attempting to transition the same booking out
+   * of the same expected status, at most one can ever see count === 1;
+   * the other observes count === 0, meaning the row had already moved on
+   * by the time its UPDATE ran, and must not treat its own call as
+   * having succeeded.
+   */
+  transitionStatus(
+    id: string,
+    fromStatuses: BookingStatus[],
+    toStatus: BookingStatus,
+    tx: PrismaClientOrTx,
+  ) {
+    return tx.booking.updateMany({
+      where: { id, status: { in: fromStatuses } },
+      data: { status: toStatus },
+    });
   },
 
   /**
