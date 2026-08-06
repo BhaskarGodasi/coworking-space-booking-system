@@ -5,10 +5,14 @@ import SpaceListPage from "./pages/SpaceListPage";
 import SpaceDetailsPage from "./pages/SpaceDetailsPage";
 import MyBookingsPage from "./pages/MyBookingsPage";
 import AdminDashboardPage from "./pages/AdminDashboardPage";
+import NotFoundPage from "./pages/NotFoundPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
+import { useSessionRestore } from "./hooks/useSessionRestore";
 
 function App() {
+  useSessionRestore();
+
   return (
     <BrowserRouter>
       <Routes>
@@ -32,6 +36,7 @@ function App() {
             </AdminRoute>
           }
         />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </BrowserRouter>
   );

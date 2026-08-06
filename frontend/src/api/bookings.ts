@@ -1,4 +1,4 @@
-import { api } from "./axios";
+import { api, unwrapData } from "./axios";
 
 export type BookingStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
 
@@ -21,15 +21,15 @@ export interface CreateBookingPayload {
 
 export async function createBookingRequest(payload: CreateBookingPayload) {
   const { data } = await api.post("/bookings", payload);
-  return data.data as Booking;
+  return unwrapData<Booking>(data);
 }
 
 export async function listOwnBookingsRequest() {
   const { data } = await api.get("/bookings/me");
-  return data.data as Booking[];
+  return unwrapData<Booking[]>(data);
 }
 
 export async function cancelBookingRequest(id: string) {
   const { data } = await api.put(`/bookings/${id}/cancel`);
-  return data.data as Booking;
+  return unwrapData<Booking>(data);
 }

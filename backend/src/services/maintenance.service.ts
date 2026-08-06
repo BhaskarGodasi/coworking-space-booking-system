@@ -60,11 +60,9 @@ export const maintenanceService = {
   },
 
   async remove(maintenanceId: string) {
-    const maintenance = await maintenanceRepository.findById(maintenanceId);
-    if (!maintenance) {
+    const deleted = await maintenanceRepository.deleteIfExists(maintenanceId);
+    if (!deleted) {
       throw new NotFoundError("Maintenance window not found");
     }
-
-    await maintenanceRepository.delete(maintenanceId);
   },
 };

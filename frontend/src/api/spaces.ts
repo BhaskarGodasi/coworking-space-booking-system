@@ -1,4 +1,4 @@
-import { api } from "./axios";
+import { api, unwrapData } from "./axios";
 
 export type SpaceType = "DESK" | "MEETING_ROOM";
 
@@ -33,15 +33,18 @@ export interface SpaceAvailability {
 
 export async function listSpacesRequest(params: ListSpacesParams) {
   const { data } = await api.get("/spaces", { params });
+  if (!data || !Array.isArray(data.data) || typeof data.meta !== "object" || data.meta === null) {
+    throw new Error("Unexpected response shape from server");
+  }
   return data as { data: Space[]; meta: SpaceListMeta };
 }
 
 export async function getSpaceRequest(id: string) {
   const { data } = await api.get(`/spaces/${id}`);
-  return data.data as Space;
+  return unwrapData<Space>(data);
 }
 
 export async function getSpaceAvailabilityRequest(id: string, date: string) {
   const { data } = await api.get(`/spaces/${id}/availability`, { params: { date } });
-  return data.data as SpaceAvailability;
+  return unwrapData<SpaceAvailability>(data);
 }

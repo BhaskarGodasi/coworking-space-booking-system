@@ -1,4 +1,4 @@
-import { api } from "./axios";
+import { api, unwrapData } from "./axios";
 import { AuthUser } from "../store/authStore";
 
 export interface RegisterPayload {
@@ -15,12 +15,12 @@ export interface LoginPayload {
 
 export async function registerRequest(payload: RegisterPayload) {
   const { data } = await api.post("/auth/register", payload);
-  return data.data.user as AuthUser;
+  return unwrapData<{ user: AuthUser }>(data).user;
 }
 
 export async function loginRequest(payload: LoginPayload) {
   const { data } = await api.post("/auth/login", payload);
-  return data.data as { accessToken: string; user: AuthUser };
+  return unwrapData<{ accessToken: string; user: AuthUser }>(data);
 }
 
 export async function logoutRequest() {

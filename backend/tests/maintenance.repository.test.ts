@@ -57,10 +57,24 @@ describe("maintenanceRepository", () => {
       maintenanceRepository.create({ spaceId, startTime, endTime, reason: "Repair" }, tx),
     );
 
-    await maintenanceRepository.delete(created.id);
+    const deleted = await maintenanceRepository.deleteIfExists(created.id);
+    expect(deleted?.id).toBe(created.id);
 
     const found = await maintenanceRepository.findById(created.id);
     expect(found).toBeNull();
+  });
+
+  it("returns null instead of throwing when deleting an already-deleted window", async () => {
+    const { startTime, endTime } = slot(9, 10);
+    const created = await prisma.$transaction((tx) =>
+      maintenanceRepository.create({ spaceId, startTime, endTime, reason: "Repair" }, tx),
+    );
+
+    const first = await maintenanceRepository.deleteIfExists(created.id);
+    const second = await maintenanceRepository.deleteIfExists(created.id);
+
+    expect(first).not.toBeNull();
+    expect(second).toBeNull();
   });
 
   it("lists maintenance windows filtered by space", async () => {

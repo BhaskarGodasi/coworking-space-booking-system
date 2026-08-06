@@ -55,6 +55,7 @@ model Space {
 
   @@index([type])
   @@index([deletedAt])
+  @@index([deletedAt, type])
 }
 
 model Booking {
@@ -72,6 +73,7 @@ model Booking {
 
   @@index([status])
   @@index([spaceId, startTime, endTime])
+  @@index([userId])
 }
 
 model Maintenance {

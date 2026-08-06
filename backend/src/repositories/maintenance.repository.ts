@@ -56,7 +56,22 @@ export const maintenanceRepository = {
     });
   },
 
-  delete(id: string, client: PrismaClientOrTx = prisma) {
-    return client.maintenance.delete({ where: { id } });
+  /**
+   * Atomic delete-and-return, mirroring refreshTokenRepository.consumeToken:
+   * the delete itself is the existence check. Of two concurrent deletes for
+   * the same id, only one can find a row to remove; the other observes
+   * Prisma's P2025 (record not found) and returns null instead of throwing,
+   * so a duplicate delete request is a clean no-op rather than an
+   * unhandled 500.
+   */
+  async deleteIfExists(id: string, client: PrismaClientOrTx = prisma) {
+    try {
+      return await client.maintenance.delete({ where: { id } });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2025") {
+        return null;
+      }
+      throw err;
+    }
   },
 };
