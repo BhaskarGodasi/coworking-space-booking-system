@@ -1,6 +1,7 @@
 import { BookingStatus } from "@prisma/client";
 import { prisma } from "../repositories/prisma";
 import { bookingRepository } from "../repositories/booking.repository";
+import { maintenanceRepository } from "../repositories/maintenance.repository";
 import { spaceRepository } from "../repositories/space.repository";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../errors/AppError";
 import { CreateBookingDTO } from "../dtos/booking.dto";
@@ -14,14 +15,17 @@ export const bookingService = {
    * 2. The parent Space row is locked with SELECT ... FOR UPDATE, so a
    *    concurrent request for the same space blocks here rather than
    *    racing the overlap check below.
-   * 3. Once the lock is held, the Booking table is queried for any
-   *    PENDING/APPROVED range overlapping the request.
-   * 4. If an overlap exists, the transaction throws (Prisma rolls back
-   *    automatically) and the caller receives 409 Conflict. Otherwise the
-   *    new booking is inserted.
+   * 3. Once the lock is held, both the Booking table (PENDING/APPROVED)
+   *    and the Maintenance table are queried for any range overlapping
+   *    the request, per the documented step 3 ("Query Booking ... and
+   *    Maintenance tables for overlapping ranges").
+   * 4. If either overlap exists, the transaction throws (Prisma rolls
+   *    back automatically) and the caller receives 409 Conflict.
+   *    Otherwise the new booking is inserted.
    * 5. The transaction commits, releasing the lock; any request that was
    *    blocked on the same space then acquires it and re-runs step 3
-   *    against this booking's now-committed row.
+   *    against this booking's (or maintenance window's) now-committed
+   *    state.
    */
   async create(userId: string, input: CreateBookingDTO) {
     const space = await spaceRepository.findById(input.spaceId);
@@ -35,14 +39,24 @@ export const bookingService = {
     return prisma.$transaction(async (tx) => {
       await bookingRepository.lockSpaceForUpdate(input.spaceId, tx);
 
-      const overlapping = await bookingRepository.findOverlapping(
+      const overlappingBooking = await bookingRepository.findOverlapping(
         input.spaceId,
         startTime,
         endTime,
         tx,
       );
-      if (overlapping) {
+      if (overlappingBooking) {
         throw new ConflictError("Space is already booked for this time");
+      }
+
+      const overlappingMaintenance = await maintenanceRepository.findOverlapping(
+        input.spaceId,
+        startTime,
+        endTime,
+        tx,
+      );
+      if (overlappingMaintenance) {
+        throw new ConflictError("Space is unavailable for maintenance during this time");
       }
 
       return bookingRepository.create({ userId, spaceId: input.spaceId, startTime, endTime }, tx);

@@ -1,6 +1,10 @@
+import { BookingStatus } from "@prisma/client";
 import { spaceRepository } from "../repositories/space.repository";
+import { prisma } from "../repositories/prisma";
 import { NotFoundError } from "../errors/AppError";
 import { CreateSpaceDTO, UpdateSpaceDTO, ListSpacesQueryDTO } from "../dtos/space.dto";
+
+const ACTIVE_BOOKING_STATUSES: BookingStatus[] = ["PENDING", "APPROVED"];
 
 export const spaceService = {
   async list(query: ListSpacesQueryDTO) {
@@ -55,19 +59,45 @@ export const spaceService = {
     return spaceRepository.softDelete(id);
   },
 
-  async getAvailability(id: string, _date: string) {
+  /**
+   * Implementation Design v1.1's documented availability response shape:
+   * { data: { bookings: [{ startTime, endTime }], maintenance: [...] } }.
+   * A booking/maintenance window is "on" the requested date if its range
+   * overlaps that calendar day in UTC (per System Architecture v1.1's
+   * Time Handling Strategy: all timestamps are stored and transmitted in
+   * UTC), regardless of which day it starts or ends on.
+   */
+  async getAvailability(id: string, date: string) {
     const space = await spaceRepository.findById(id);
     if (!space) {
       throw new NotFoundError("Space not found");
     }
 
-    // Booking and Maintenance windows are introduced in later phases
-    // (Roadmap Phase 4/5); until then no occupied blocks exist for any
-    // space, so the documented response shape is returned with both arrays
-    // genuinely empty rather than stubbed.
-    return {
-      bookings: [],
-      maintenance: [],
-    };
+    const dayStart = new Date(`${date}T00:00:00.000Z`);
+    const dayEnd = new Date(`${date}T23:59:59.999Z`);
+
+    const [bookings, maintenance] = await Promise.all([
+      prisma.booking.findMany({
+        where: {
+          spaceId: id,
+          status: { in: ACTIVE_BOOKING_STATUSES },
+          startTime: { lt: dayEnd },
+          endTime: { gt: dayStart },
+        },
+        select: { startTime: true, endTime: true },
+        orderBy: { startTime: "asc" },
+      }),
+      prisma.maintenance.findMany({
+        where: {
+          spaceId: id,
+          startTime: { lt: dayEnd },
+          endTime: { gt: dayStart },
+        },
+        select: { startTime: true, endTime: true },
+        orderBy: { startTime: "asc" },
+      }),
+    ]);
+
+    return { bookings, maintenance };
   },
 };
