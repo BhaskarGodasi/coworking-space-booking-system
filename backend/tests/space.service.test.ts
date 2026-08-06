@@ -79,4 +79,85 @@ describe("spaceService", () => {
 
     expect(availability).toEqual({ bookings: [], maintenance: [] });
   });
+
+  it("forwards minCapacity and date filters from the query to the repository", async () => {
+    await spaceService.create({
+      name: "space-svc-test-filter-small",
+      type: "DESK",
+      capacity: 1,
+      amenities: [],
+    });
+    await spaceService.create({
+      name: "space-svc-test-filter-large",
+      type: "MEETING_ROOM",
+      capacity: 12,
+      amenities: [],
+    });
+
+    const result = await spaceService.list({
+      page: 1,
+      limit: 10,
+      search: "space-svc-test-filter",
+      minCapacity: 10,
+    });
+
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].name).toBe("space-svc-test-filter-large");
+  });
+
+  describe("restore", () => {
+    it("throws NotFoundError when restoring a space that isn't soft-deleted", async () => {
+      const space = await spaceService.create({
+        name: "space-svc-test-restore-active",
+        type: "DESK",
+        capacity: 1,
+        amenities: [],
+      });
+
+      await expect(spaceService.restore(space.id)).rejects.toThrow(NotFoundError);
+    });
+
+    it("throws NotFoundError when restoring a non-existent space", async () => {
+      await expect(
+        spaceService.restore("00000000-0000-0000-0000-000000000000"),
+      ).rejects.toThrow(NotFoundError);
+    });
+
+    it("restores a soft-deleted space so it reappears in getById", async () => {
+      const space = await spaceService.create({
+        name: "space-svc-test-restore-soft-deleted",
+        type: "DESK",
+        capacity: 1,
+        amenities: [],
+      });
+      await spaceService.softDelete(space.id);
+
+      await spaceService.restore(space.id);
+
+      const found = await spaceService.getById(space.id);
+      expect(found.id).toBe(space.id);
+    });
+
+    it("lists only soft-deleted spaces", async () => {
+      const active = await spaceService.create({
+        name: "space-svc-test-listdeleted-active",
+        type: "DESK",
+        capacity: 1,
+        amenities: [],
+      });
+      const deleted = await spaceService.create({
+        name: "space-svc-test-listdeleted-deleted",
+        type: "DESK",
+        capacity: 1,
+        amenities: [],
+      });
+      await spaceService.softDelete(deleted.id);
+
+      const result = await spaceService.listDeleted();
+      const ids = result.map((s) => s.id);
+
+      expect(ids).toContain(deleted.id);
+      expect(ids).not.toContain(active.id);
+    });
+  });
 });

@@ -1,5 +1,7 @@
 import { PrismaClient, Prisma, BookingStatus } from "@prisma/client";
 import { prisma } from "./prisma";
+import { ACTIVE_BOOKING_STATUSES } from "../constants/bookingStatuses";
+import { overlapsRange } from "../utils/overlap";
 
 export interface CreateBookingInput {
   userId: string;
@@ -9,8 +11,6 @@ export interface CreateBookingInput {
 }
 
 type PrismaClientOrTx = PrismaClient | Prisma.TransactionClient;
-
-const ACTIVE_STATUSES: BookingStatus[] = ["PENDING", "APPROVED"];
 
 export const bookingRepository = {
   /**
@@ -41,9 +41,8 @@ export const bookingRepository = {
     return tx.booking.findFirst({
       where: {
         spaceId,
-        status: { in: ACTIVE_STATUSES },
-        startTime: { lt: endTime },
-        endTime: { gt: startTime },
+        status: { in: ACTIVE_BOOKING_STATUSES },
+        ...overlapsRange(startTime, endTime),
         ...(excludeBookingId ? { id: { not: excludeBookingId } } : {}),
       },
     });
@@ -118,8 +117,7 @@ export const bookingRepository = {
         spaceId,
         status: "PENDING",
         id: { not: excludeBookingId },
-        startTime: { lt: endTime },
-        endTime: { gt: startTime },
+        ...overlapsRange(startTime, endTime),
       },
       data: { status: "REJECTED" },
     });

@@ -25,18 +25,20 @@ export const UpdateSpaceDTO = z
 
 export type UpdateSpaceDTO = z.infer<typeof UpdateSpaceDTO>;
 
+const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
+
 export const ListSpacesQueryDTO = z
   .object({
     page: z.coerce.number().int().positive().default(1),
     limit: z.coerce.number().int().positive().max(100).default(10),
     type: spaceTypeEnum.optional(),
     search: z.string().min(1).optional(),
+    minCapacity: z.coerce.number().int().positive().optional(),
+    date: z.string().regex(isoDatePattern, "date must be in YYYY-MM-DD format").optional(),
   })
   .strict();
 
 export type ListSpacesQueryDTO = z.infer<typeof ListSpacesQueryDTO>;
-
-const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 export const SpaceAvailabilityQueryDTO = z
   .object({
