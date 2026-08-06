@@ -1,78 +1,26 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import ApprovalQueue from "../components/ApprovalQueue";
-import MaintenanceManager from "../components/MaintenanceManager";
-import SpaceManager from "../components/SpaceManager";
-import AllBookingsManager from "../components/AllBookingsManager";
-
-type Tab = "approvals" | "bookings" | "spaces" | "maintenance";
+import { useAuthStore } from "../store/authStore";
 
 function AdminDashboardPage() {
-  const [activeTab, setActiveTab] = useState<Tab>("approvals");
-
+  const { user } = useAuthStore();
+  
   return (
-    <div>
-      <Link to="/">Back to spaces</Link>
-      <h1>Admin Dashboard</h1>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Admin Overview</h1>
+        <p className="text-muted-foreground mt-1">Welcome back, {user?.firstName}. Here's what's happening today.</p>
+      </div>
 
-      <nav>
-        <button
-          type="button"
-          aria-current={activeTab === "approvals"}
-          onClick={() => setActiveTab("approvals")}
-        >
-          Approvals
-        </button>
-        <button
-          type="button"
-          aria-current={activeTab === "bookings"}
-          onClick={() => setActiveTab("bookings")}
-        >
-          All Bookings
-        </button>
-        <button
-          type="button"
-          aria-current={activeTab === "spaces"}
-          onClick={() => setActiveTab("spaces")}
-        >
-          Spaces
-        </button>
-        <button
-          type="button"
-          aria-current={activeTab === "maintenance"}
-          onClick={() => setActiveTab("maintenance")}
-        >
-          Maintenance
-        </button>
-      </nav>
-
-      {activeTab === "approvals" && (
-        <section>
-          <h2>Pending Bookings</h2>
+      <Card>
+        <CardHeader>
+          <CardTitle>Approval Queue</CardTitle>
+          <CardDescription>Review and manage pending booking requests.</CardDescription>
+        </CardHeader>
+        <CardContent>
           <ApprovalQueue />
-        </section>
-      )}
-
-      {activeTab === "bookings" && (
-        <section>
-          <h2>All Bookings</h2>
-          <AllBookingsManager />
-        </section>
-      )}
-
-      {activeTab === "spaces" && (
-        <section>
-          <h2>Spaces</h2>
-          <SpaceManager />
-        </section>
-      )}
-
-      {activeTab === "maintenance" && (
-        <section>
-          <h2>Maintenance</h2>
-          <MaintenanceManager />
-        </section>
-      )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

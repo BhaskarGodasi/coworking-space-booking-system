@@ -1,5 +1,11 @@
 import { useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useSpaceAvailability } from "../hooks/useSpaceAvailability";
+import { Button } from "./ui/button";
+import { cn } from "../lib/utils";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Skeleton } from "./ui/skeleton";
+import { Badge } from "./ui/badge";
 
 interface AvailabilityCalendarProps {
   spaceId: string;
@@ -55,16 +61,6 @@ function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-/**
- * A reusable, dependency-free availability calendar: CSS Grid month view
- * with day selection, plus a time-slot breakdown for whichever day is
- * selected. The documented availability contract
- * (GET /spaces/:id/availability?date=YYYY-MM-DD, see 2_Implementation
- * Design v1.1) only returns one day's bookings/maintenance at a time --
- * there is no bulk/range endpoint -- so only the selected day can be
- * colored Available/Booked/Maintenance from real data. Every other cell
- * in the grid is deliberately neutral rather than guessed at.
- */
 function AvailabilityCalendar({ spaceId, initialDate, onDateSelect }: AvailabilityCalendarProps) {
   const todayIso = useMemo(() => toIsoDate(new Date()), []);
   const [selectedDate, setSelectedDate] = useState(initialDate ?? todayIso);
@@ -108,99 +104,125 @@ function AvailabilityCalendar({ spaceId, initialDate, onDateSelect }: Availabili
   })();
 
   return (
-    <div>
-      <div
-        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}
-      >
-        <button type="button" onClick={goToPreviousMonth} aria-label="Previous month">
-          Previous
-        </button>
-        <span>{monthLabel}</span>
-        <button type="button" onClick={goToNextMonth} aria-label="Next month">
-          Next
-        </button>
-      </div>
-
-      <div
-        role="grid"
-        aria-label="Availability calendar"
-        style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "2px" }}
-      >
-        {WEEKDAY_LABELS.map((label) => (
-          <div key={label} role="columnheader" style={{ textAlign: "center", fontWeight: "bold" }}>
-            {label}
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <Card>
+        <CardHeader className="pb-4 border-b">
+          <div className="flex items-center justify-between">
+            <Button variant="outline" size="icon" onClick={goToPreviousMonth} aria-label="Previous month" className="h-8 w-8">
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <h3 className="font-semibold">{monthLabel}</h3>
+            <Button variant="outline" size="icon" onClick={goToNextMonth} aria-label="Next month" className="h-8 w-8">
+              <ChevronRight className="h-4 w-4" />
+            </Button>
           </div>
-        ))}
+        </CardHeader>
+        <CardContent className="p-4">
+          <div
+            role="grid"
+            aria-label="Availability calendar"
+            className="grid grid-cols-7 gap-1"
+          >
+            {WEEKDAY_LABELS.map((label) => (
+              <div key={label} role="columnheader" className="text-center text-xs font-medium text-muted-foreground py-2">
+                {label}
+              </div>
+            ))}
 
-        {grid.map((cell) => {
-          const isSelected = cell.iso === selectedDate;
-          const cellStatus = isSelected ? selectedDayStatus : "unselected";
+            {grid.map((cell) => {
+              const isSelected = cell.iso === selectedDate;
 
-          return (
-            <button
-              key={cell.iso}
-              type="button"
-              role="gridcell"
-              aria-selected={isSelected}
-              data-status={cellStatus}
-              data-in-month={cell.inCurrentMonth}
-              onClick={() => selectDay(cell.iso)}
-              style={{
-                opacity: cell.inCurrentMonth ? 1 : 0.4,
-                fontWeight: cell.isToday ? "bold" : "normal",
-                border: isSelected ? "2px solid" : "1px solid",
-              }}
-            >
-              {cell.date.getUTCDate()}
-            </button>
-          );
-        })}
-      </div>
+              return (
+                <button
+                  key={cell.iso}
+                  type="button"
+                  role="gridcell"
+                  aria-selected={isSelected}
+                  data-in-month={cell.inCurrentMonth}
+                  onClick={() => selectDay(cell.iso)}
+                  className={cn(
+                    "flex h-10 w-10 mx-auto items-center justify-center rounded-md text-sm transition-colors",
+                    !cell.inCurrentMonth && "text-muted-foreground opacity-50",
+                    cell.inCurrentMonth && "hover:bg-muted",
+                    cell.isToday && !isSelected && "bg-accent/20 text-accent-foreground font-bold",
+                    isSelected && "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm font-semibold"
+                  )}
+                >
+                  {cell.date.getUTCDate()}
+                </button>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
-      <div>
-        <span data-status={selectedDayStatus}>
-          {selectedDayStatus === "available" && "Available"}
-          {selectedDayStatus === "booked" && "Booked"}
-          {selectedDayStatus === "maintenance" && "Maintenance"}
-          {selectedDayStatus === "unknown" && "Checking availability..."}
-        </span>
-        {" for "}
-        {selectedDate}
-      </div>
+      <div className="flex flex-col space-y-4">
+        <h3 className="font-semibold flex items-center gap-2">
+          Schedule for {new Date(selectedDate).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}
+          {selectedDayStatus === "available" && <Badge variant="success">Available</Badge>}
+          {selectedDayStatus === "booked" && <Badge variant="secondary">Booked</Badge>}
+          {selectedDayStatus === "maintenance" && <Badge variant="warning">Maintenance</Badge>}
+        </h3>
 
-      {availabilityQuery.isLoading && <p role="status">Loading availability...</p>}
-
-      {availabilityQuery.isError && (
-        <div role="alert">
-          <p>Could not load availability for this date.</p>
-          <button type="button" onClick={() => availabilityQuery.refetch()}>
-            Retry
-          </button>
-        </div>
-      )}
-
-      {availabilityQuery.data &&
-        availabilityQuery.data.bookings.length === 0 &&
-        availabilityQuery.data.maintenance.length === 0 && (
-          <p>This space is fully available on {selectedDate}.</p>
+        {availabilityQuery.isLoading && (
+          <div className="space-y-3">
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-16 w-full" />
+          </div>
         )}
 
-      {availabilityQuery.data &&
-        (availabilityQuery.data.bookings.length > 0 ||
-          availabilityQuery.data.maintenance.length > 0) && (
-          <ul>
-            {availabilityQuery.data.bookings.map((slot, index) => (
-              <li key={`booking-${index}`} data-slot-type="booked">
-                Booked: {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
-              </li>
-            ))}
-            {availabilityQuery.data.maintenance.map((slot, index) => (
-              <li key={`maintenance-${index}`} data-slot-type="maintenance">
-                Maintenance: {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
-              </li>
-            ))}
-          </ul>
+        {availabilityQuery.isError && (
+          <div className="p-4 rounded-md border border-destructive/50 bg-destructive/10 text-destructive text-sm" role="alert">
+            Could not load availability for this date.
+            <Button variant="link" size="sm" onClick={() => availabilityQuery.refetch()} className="ml-2 h-auto p-0">
+              Retry
+            </Button>
+          </div>
         )}
+
+        {availabilityQuery.data &&
+          availabilityQuery.data.bookings.length === 0 &&
+          availabilityQuery.data.maintenance.length === 0 && (
+            <div className="flex flex-col items-center justify-center p-8 rounded-lg border border-dashed text-center">
+              <p className="text-muted-foreground">This space is fully available.</p>
+            </div>
+          )}
+
+        {availabilityQuery.data &&
+          (availabilityQuery.data.bookings.length > 0 ||
+            availabilityQuery.data.maintenance.length > 0) && (
+            <div className="space-y-3">
+              {availabilityQuery.data.bookings.map((slot, index) => (
+                <div 
+                  key={`booking-${index}`} 
+                  className="flex items-center justify-between p-3 rounded-md border bg-card"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="h-2 w-2 rounded-full bg-primary" />
+                    <span className="font-medium text-sm">Booked</span>
+                  </div>
+                  <span className="text-sm text-muted-foreground font-mono">
+                    {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
+                  </span>
+                </div>
+              ))}
+              {availabilityQuery.data.maintenance.map((slot, index) => (
+                <div 
+                  key={`maintenance-${index}`} 
+                  className="flex items-center justify-between p-3 rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="h-2 w-2 rounded-full bg-amber-500" />
+                    <span className="font-medium text-sm text-amber-700 dark:text-amber-400">Maintenance</span>
+                  </div>
+                  <span className="text-sm text-muted-foreground font-mono">
+                    {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+      </div>
     </div>
   );
 }

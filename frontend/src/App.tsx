@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import SpaceListPage from "./pages/SpaceListPage";
@@ -9,6 +10,11 @@ import NotFoundPage from "./pages/NotFoundPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
 import { useSessionRestore } from "./hooks/useSessionRestore";
+import { MainLayout } from "./components/layout/MainLayout";
+import { DashboardLayout } from "./components/layout/DashboardLayout";
+import AdminSpacesPage from "./pages/AdminSpacesPage";
+import AdminBookingsPage from "./pages/AdminBookingsPage";
+import AdminMaintenancePage from "./pages/AdminMaintenancePage";
 
 function App() {
   useSessionRestore();
@@ -16,27 +22,43 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<SpaceListPage />} />
-        <Route path="/spaces/:id" element={<SpaceDetailsPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
+        {/* Public Marketing & Browsing Routes */}
+        <Route element={<MainLayout />}>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/spaces" element={<SpaceListPage />} />
+          <Route path="/spaces/:id" element={<SpaceDetailsPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Route>
+
+        {/* Member Dashboard Routes */}
         <Route
           path="/dashboard"
           element={
             <ProtectedRoute>
-              <MyBookingsPage />
+              <DashboardLayout />
             </ProtectedRoute>
           }
-        />
+        >
+          <Route index element={<MyBookingsPage />} />
+          {/* Future routes: /dashboard/profile, etc. */}
+        </Route>
+
+        {/* Admin Dashboard Routes */}
         <Route
           path="/admin"
           element={
             <AdminRoute>
-              <AdminDashboardPage />
+              <DashboardLayout />
             </AdminRoute>
           }
-        />
-        <Route path="*" element={<NotFoundPage />} />
+        >
+          <Route index element={<AdminDashboardPage />} />
+          <Route path="spaces" element={<AdminSpacesPage />} />
+          <Route path="bookings" element={<AdminBookingsPage />} />
+          <Route path="maintenance" element={<AdminMaintenancePage />} />
+        </Route>
       </Routes>
     </BrowserRouter>
   );
