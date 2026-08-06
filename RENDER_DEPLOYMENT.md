@@ -2,9 +2,12 @@
 
 This app deploys to Render as **one Docker Web Service** (Express serving
 both the API and the built React frontend on a single port) plus **one
-Render PostgreSQL** instance. `render.yaml` in the repo root codifies this
-as a Blueprint; the steps below cover both the Blueprint path and manual
-dashboard setup.
+Render PostgreSQL** instance. `render.yaml` in the repo root codifies the
+web service as a Blueprint; it deliberately does not also provision the
+database (Render's free tier allows only one free Postgres instance per
+account, so the Blueprint assumes you've already created one separately
+and will wire its connection string in as a manual env var). The steps
+below cover both the Blueprint path and manual dashboard setup.
 
 ## Architecture
 
@@ -31,26 +34,29 @@ dashboard and let Render inject its own.
 
 ### Option A — Blueprint (`render.yaml`)
 
-1. Push this repository to a Git provider Render can access.
-2. In the Render dashboard: **New > Blueprint**, point it at this repo.
-   Render reads `render.yaml` and provisions the `coworking-db` Postgres
-   instance and the `coworking-app` web service together.
-3. Render will prompt for the one variable marked `sync: false` in
-   `render.yaml`: **`CLIENT_URL`**. You won't know the service's public URL
-   until after the first deploy, so:
+1. Create the PostgreSQL instance first (New > PostgreSQL in the Render
+   dashboard) if you haven't already, and copy its connection string.
+2. Push this repository to a Git provider Render can access.
+3. In the Render dashboard: **New > Blueprint**, point it at this repo.
+   Render reads `render.yaml` and provisions the `coworking-app` web
+   service (the Blueprint has no `databases:` block, so it will not try to
+   create a second Postgres instance).
+4. Render will prompt for the two variables marked `sync: false` in
+   `render.yaml`: **`DATABASE_URL`** and **`CLIENT_URL`**.
+   - Set `DATABASE_URL` to the connection string from step 1.
+   - `CLIENT_URL` you won't know yet — you won't have the service's public
+     URL until after the first deploy, so:
    - Deploy once with a placeholder (e.g. the value doesn't matter for the
      first boot to succeed).
    - Once Render assigns the public URL (`https://coworking-app-xxxx.onrender.com`),
      set `CLIENT_URL` to that exact URL in the service's Environment tab and
      trigger a redeploy (or just a restart — no rebuild needed, it's a
      runtime env var).
-4. `JWT_SECRET` and `REFRESH_SECRET` are marked `generateValue: true` —
+5. `JWT_SECRET` and `REFRESH_SECRET` are marked `generateValue: true` —
    Render generates cryptographically random values for these automatically;
-   no action needed.
-5. `DATABASE_URL` is wired automatically from the `coworking-db` database's
-   connection string via `fromDatabase` — no action needed. Render's managed
-   Postgres connection strings already require/support SSL; nothing in this
-   codebase hardcodes an incompatible `sslmode`.
+   no action needed. Render's managed Postgres connection strings already
+   require/support SSL; nothing in this codebase hardcodes an incompatible
+   `sslmode`, so the `DATABASE_URL` you pasted in step 4 works as-is.
 
 ### Option B — Manual dashboard setup
 
