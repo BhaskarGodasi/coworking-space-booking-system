@@ -5,6 +5,7 @@ import cookieParser from "cookie-parser";
 import { env } from "./config/env";
 import { authRouter } from "./routes/auth.routes";
 import { spaceRouter } from "./routes/space.routes";
+import { bookingRouter } from "./routes/booking.routes";
 import { globalErrorHandler } from "./middlewares/globalErrorHandler";
 
 export const app = express();
@@ -24,6 +25,7 @@ app.get("/health", (_req, res) => {
 
 app.use("/api/auth", authRouter);
 app.use("/api/spaces", spaceRouter);
+app.use("/api/bookings", bookingRouter);
 
 app.use(globalErrorHandler);
 
