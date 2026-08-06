@@ -1,7 +1,17 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
+import { format } from "date-fns";
+import { ArrowLeft, CalendarX2, CheckCircle2, Clock, XCircle } from "lucide-react";
 import { useOwnBookings } from "../hooks/useOwnBookings";
 import { useCancelBooking } from "../hooks/useCancelBooking";
 import { Booking } from "../api/bookings";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
+import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
+import { Skeleton } from "../components/ui/skeleton";
+import { ErrorState } from "../components/common/ErrorState";
+import { EmptyState } from "../components/common/EmptyState";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 
 function isCancellable(booking: Booking) {
   const isActiveStatus = booking.status === "PENDING" || booking.status === "APPROVED";
@@ -9,18 +19,18 @@ function isCancellable(booking: Booking) {
   return isActiveStatus && isFuture;
 }
 
-function statusLabel(status: Booking["status"]) {
+function StatusBadge({ status }: { status: Booking["status"] }) {
   switch (status) {
     case "APPROVED":
-      return "Approved";
+      return <Badge variant="success" className="gap-1"><CheckCircle2 className="w-3 h-3" /> Approved</Badge>;
     case "PENDING":
-      return "Pending";
+      return <Badge variant="warning" className="gap-1"><Clock className="w-3 h-3" /> Pending</Badge>;
     case "REJECTED":
-      return "Rejected";
+      return <Badge variant="destructive" className="gap-1"><XCircle className="w-3 h-3" /> Rejected</Badge>;
     case "CANCELLED":
-      return "Cancelled";
+      return <Badge variant="secondary" className="gap-1"><CalendarX2 className="w-3 h-3" /> Cancelled</Badge>;
     default:
-      return status;
+      return <Badge>{status}</Badge>;
   }
 }
 
@@ -29,63 +39,93 @@ function MyBookingsPage() {
   const cancelBooking = useCancelBooking();
 
   return (
-    <div>
-      <Link to="/">Back to spaces</Link>
-      <h1>My Bookings</h1>
-
-      {isLoading && <p role="status">Loading your bookings...</p>}
-
-      {isError && (
-        <div role="alert">
-          <p>Could not load your bookings. Please try again.</p>
-          <button type="button" onClick={() => refetch()}>
-            Retry
-          </button>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">My Bookings</h1>
+          <p className="text-muted-foreground mt-1">Manage your upcoming and past bookings.</p>
         </div>
-      )}
+        <Button asChild>
+          <Link to="/spaces">Book New Space</Link>
+        </Button>
+      </div>
 
-      {!isLoading && !isError && data && data.length === 0 && (
-        <p>You have no bookings yet. Browse spaces to make your first booking.</p>
-      )}
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle>Booking History</CardTitle>
+          <CardDescription>A list of all your requested space bookings.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoading && (
+            <div className="space-y-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+            </div>
+          )}
 
-      {!isLoading && !isError && data && data.length > 0 && (
-        <table>
-          <thead>
-            <tr>
-              <th>Start</th>
-              <th>End</th>
-              <th>Status</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((booking) => (
-              <tr key={booking.id}>
-                <td>{new Date(booking.startTime).toLocaleString()}</td>
-                <td>{new Date(booking.endTime).toLocaleString()}</td>
-                <td>
-                  <span data-status={booking.status}>{statusLabel(booking.status)}</span>
-                </td>
-                <td>
-                  {isCancellable(booking) && (
-                    <button
-                      type="button"
-                      disabled={cancelBooking.isPending}
-                      onClick={() => cancelBooking.mutate(booking.id)}
-                    >
-                      Cancel
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+          {isError && (
+            <ErrorState 
+              title="Could not load bookings" 
+              message="There was an error communicating with the server."
+              onRetry={() => refetch()} 
+            />
+          )}
 
-      {cancelBooking.isError && (
-        <p role="alert">Could not cancel this booking. Please try again.</p>
-      )}
+          {!isLoading && !isError && data && data.length === 0 && (
+            <EmptyState 
+              title="No bookings found" 
+              description="You have no bookings yet. Browse spaces to make your first booking."
+              action={<Button asChild variant="outline"><Link to="/spaces">Browse Spaces</Link></Button>}
+            />
+          )}
+
+          {!isLoading && !isError && data && data.length > 0 && (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Space</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Time</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.map((booking) => (
+                  <TableRow key={booking.id}>
+                    <TableCell className="font-medium">
+                      <Link to={`/spaces/${booking.spaceId}`} className="hover:underline text-primary">
+                        Space #{booking.spaceId.substring(0, 8)}
+                      </Link>
+                    </TableCell>
+                    <TableCell>{format(new Date(booking.startTime), "MMM d, yyyy")}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {format(new Date(booking.startTime), "h:mm a")} - {format(new Date(booking.endTime), "h:mm a")}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={booking.status} />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {isCancellable(booking) && (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          disabled={cancelBooking.isPending}
+                          onClick={() => cancelBooking.mutate(booking.id)}
+                        >
+                          Cancel
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
