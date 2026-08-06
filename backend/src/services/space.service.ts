@@ -1,10 +1,9 @@
-import { BookingStatus } from "@prisma/client";
 import { spaceRepository } from "../repositories/space.repository";
 import { prisma } from "../repositories/prisma";
 import { NotFoundError } from "../errors/AppError";
 import { CreateSpaceDTO, UpdateSpaceDTO, ListSpacesQueryDTO } from "../dtos/space.dto";
-
-const ACTIVE_BOOKING_STATUSES: BookingStatus[] = ["PENDING", "APPROVED"];
+import { ACTIVE_BOOKING_STATUSES } from "../constants/bookingStatuses";
+import { overlapsRange } from "../utils/overlap";
 
 export const spaceService = {
   async list(query: ListSpacesQueryDTO) {
@@ -13,6 +12,8 @@ export const spaceService = {
       limit: query.limit,
       type: query.type,
       search: query.search,
+      minCapacity: query.minCapacity,
+      date: query.date,
     });
 
     return {
@@ -75,29 +76,33 @@ export const spaceService = {
 
     const dayStart = new Date(`${date}T00:00:00.000Z`);
     const dayEnd = new Date(`${date}T23:59:59.999Z`);
+    const overlap = overlapsRange(dayStart, dayEnd);
 
     const [bookings, maintenance] = await Promise.all([
       prisma.booking.findMany({
-        where: {
-          spaceId: id,
-          status: { in: ACTIVE_BOOKING_STATUSES },
-          startTime: { lt: dayEnd },
-          endTime: { gt: dayStart },
-        },
+        where: { spaceId: id, status: { in: ACTIVE_BOOKING_STATUSES }, ...overlap },
         select: { startTime: true, endTime: true },
         orderBy: { startTime: "asc" },
       }),
       prisma.maintenance.findMany({
-        where: {
-          spaceId: id,
-          startTime: { lt: dayEnd },
-          endTime: { gt: dayStart },
-        },
+        where: { spaceId: id, ...overlap },
         select: { startTime: true, endTime: true },
         orderBy: { startTime: "asc" },
       }),
     ]);
 
     return { bookings, maintenance };
+  },
+
+  async listDeleted() {
+    return spaceRepository.listDeleted();
+  },
+
+  async restore(id: string) {
+    const existing = await spaceRepository.findDeletedById(id);
+    if (!existing) {
+      throw new NotFoundError("Deleted space not found");
+    }
+    return spaceRepository.restore(id);
   },
 };

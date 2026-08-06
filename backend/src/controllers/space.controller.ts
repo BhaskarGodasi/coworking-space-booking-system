@@ -56,4 +56,22 @@ export const spaceController = {
       next(err);
     }
   },
+
+  async listDeleted(req: Request, res: Response, next: NextFunction) {
+    try {
+      const spaces = await spaceService.listDeleted();
+      res.status(200).json({ success: true, data: spaces });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async restore(req: Request, res: Response, next: NextFunction) {
+    try {
+      const space = await spaceService.restore(req.params.id);
+      res.status(200).json({ success: true, data: space });
+    } catch (err) {
+      next(err);
+    }
+  },
 };

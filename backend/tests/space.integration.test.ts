@@ -172,6 +172,94 @@ describe("Space endpoints", () => {
     });
   });
 
+  describe("GET /api/spaces/deleted (RBAC)", () => {
+    it("rejects an unauthenticated request with 401", async () => {
+      const res = await request(app).get("/api/spaces/deleted");
+      expect(res.status).toBe(401);
+    });
+
+    it("rejects a MEMBER request with 403", async () => {
+      const res = await request(app)
+        .get("/api/spaces/deleted")
+        .set("Authorization", `Bearer ${memberToken}`);
+      expect(res.status).toBe(403);
+    });
+
+    it("allows an ADMIN request and returns only soft-deleted spaces", async () => {
+      const active = await prisma.space.create({
+        data: { name: "space-int-test-deleted-list-active", type: "DESK", capacity: 1, amenities: [] },
+      });
+      const deleted = await prisma.space.create({
+        data: { name: "space-int-test-deleted-list-deleted", type: "DESK", capacity: 1, amenities: [] },
+      });
+      await request(app)
+        .delete(`/api/spaces/${deleted.id}`)
+        .set("Authorization", `Bearer ${adminToken}`);
+
+      const res = await request(app)
+        .get("/api/spaces/deleted")
+        .set("Authorization", `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(200);
+      const ids = res.body.data.map((s: { id: string }) => s.id);
+      expect(ids).toContain(deleted.id);
+      expect(ids).not.toContain(active.id);
+    });
+  });
+
+  describe("PUT /api/spaces/:id/restore (RBAC)", () => {
+    it("rejects a MEMBER request with 403", async () => {
+      const created = await prisma.space.create({
+        data: { name: "space-int-test-restore-rbac", type: "DESK", capacity: 1, amenities: [] },
+      });
+      await prisma.space.update({ where: { id: created.id }, data: { deletedAt: new Date() } });
+
+      const res = await request(app)
+        .put(`/api/spaces/${created.id}/restore`)
+        .set("Authorization", `Bearer ${memberToken}`);
+
+      expect(res.status).toBe(403);
+    });
+
+    it("allows an ADMIN request to restore a soft-deleted space", async () => {
+      const created = await prisma.space.create({
+        data: { name: "space-int-test-restore-admin", type: "DESK", capacity: 1, amenities: [] },
+      });
+      await request(app)
+        .delete(`/api/spaces/${created.id}`)
+        .set("Authorization", `Bearer ${adminToken}`);
+
+      const restoreRes = await request(app)
+        .put(`/api/spaces/${created.id}/restore`)
+        .set("Authorization", `Bearer ${adminToken}`);
+      expect(restoreRes.status).toBe(200);
+      expect(restoreRes.body.data.deletedAt).toBeNull();
+
+      const getRes = await request(app).get(`/api/spaces/${created.id}`);
+      expect(getRes.status).toBe(200);
+    });
+
+    it("returns 404 when restoring a space that is not soft-deleted", async () => {
+      const created = await prisma.space.create({
+        data: { name: "space-int-test-restore-not-deleted", type: "DESK", capacity: 1, amenities: [] },
+      });
+
+      const res = await request(app)
+        .put(`/api/spaces/${created.id}/restore`)
+        .set("Authorization", `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(404);
+    });
+
+    it("returns 404 when restoring a non-existent space", async () => {
+      const res = await request(app)
+        .put("/api/spaces/00000000-0000-0000-0000-000000000000/restore")
+        .set("Authorization", `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(404);
+    });
+  });
+
   describe("GET /api/spaces (public listing)", () => {
     it("is accessible without authentication", async () => {
       const res = await request(app).get("/api/spaces");
@@ -245,6 +333,108 @@ describe("Space endpoints", () => {
       const res = await request(app).get("/api/spaces?limit=0");
       expect(res.status).toBe(400);
       expect(res.body.error.code).toBe("VALIDATION_ERROR");
+    });
+
+    it("filters by minCapacity", async () => {
+      await prisma.space.create({
+        data: { name: "space-int-test-cap-small", type: "DESK", capacity: 2, amenities: [] },
+      });
+      await prisma.space.create({
+        data: { name: "space-int-test-cap-large", type: "MEETING_ROOM", capacity: 12, amenities: [] },
+      });
+
+      const res = await request(app).get(
+        "/api/spaces?search=space-int-test-cap&minCapacity=10",
+      );
+
+      expect(res.status).toBe(200);
+      expect(res.body.data).toHaveLength(1);
+      expect(res.body.data[0].name).toBe("space-int-test-cap-large");
+    });
+
+    it("rejects a non-positive minCapacity with 400", async () => {
+      const res = await request(app).get("/api/spaces?minCapacity=0");
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe("VALIDATION_ERROR");
+    });
+
+    it("filters by date, excluding a space with an overlapping APPROVED booking", async () => {
+      const passwordHash = await hashPassword("password123");
+      const user = await prisma.user.create({
+        data: {
+          email: "space-int-test-date-user@example.com",
+          passwordHash,
+          firstName: "Date",
+          lastName: "User",
+        },
+      });
+      const busy = await prisma.space.create({
+        data: { name: "space-int-test-date-busy", type: "DESK", capacity: 1, amenities: [] },
+      });
+      await prisma.space.create({
+        data: { name: "space-int-test-date-free", type: "DESK", capacity: 1, amenities: [] },
+      });
+      await prisma.booking.create({
+        data: {
+          spaceId: busy.id,
+          userId: user.id,
+          startTime: new Date("2026-06-01T09:00:00.000Z"),
+          endTime: new Date("2026-06-01T10:00:00.000Z"),
+          status: "APPROVED",
+        },
+      });
+
+      const res = await request(app).get(
+        "/api/spaces?search=space-int-test-date&date=2026-06-01",
+      );
+
+      expect(res.status).toBe(200);
+      expect(res.body.data).toHaveLength(1);
+      expect(res.body.data[0].name).toBe("space-int-test-date-free");
+    });
+
+    it("rejects a malformed date filter with 400", async () => {
+      const res = await request(app).get("/api/spaces?date=not-a-date");
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe("VALIDATION_ERROR");
+    });
+
+    it("combines minCapacity and date filters together", async () => {
+      const passwordHash = await hashPassword("password123");
+      const user = await prisma.user.create({
+        data: {
+          email: "space-int-test-combined-user@example.com",
+          passwordHash,
+          firstName: "Combined",
+          lastName: "User",
+        },
+      });
+      const busyLarge = await prisma.space.create({
+        data: { name: "space-int-test-combined-busy", type: "MEETING_ROOM", capacity: 10, amenities: [] },
+      });
+      await prisma.space.create({
+        data: { name: "space-int-test-combined-free", type: "MEETING_ROOM", capacity: 10, amenities: [] },
+      });
+      await prisma.space.create({
+        data: { name: "space-int-test-combined-small", type: "DESK", capacity: 2, amenities: [] },
+      });
+      await prisma.booking.create({
+        data: {
+          spaceId: busyLarge.id,
+          userId: user.id,
+          startTime: new Date("2026-06-02T09:00:00.000Z"),
+          endTime: new Date("2026-06-02T10:00:00.000Z"),
+          status: "APPROVED",
+        },
+      });
+
+      const res = await request(app).get(
+        "/api/spaces?search=space-int-test-combined&minCapacity=5&date=2026-06-02",
+      );
+
+      expect(res.status).toBe(200);
+      expect(res.body.data).toHaveLength(1);
+      expect(res.body.data[0].name).toBe("space-int-test-combined-free");
     });
   });
 

@@ -8,6 +8,7 @@ export interface Space {
   type: SpaceType;
   capacity: number;
   amenities: string[];
+  deletedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -24,6 +25,17 @@ export interface ListSpacesParams {
   limit?: number;
   type?: SpaceType;
   search?: string;
+  minCapacity?: number;
+  /** YYYY-MM-DD. When set, only spaces free of any active booking or
+   * maintenance window on that day are returned. */
+  date?: string;
+}
+
+export interface SpaceInput {
+  name: string;
+  type: SpaceType;
+  capacity: number;
+  amenities: string[];
 }
 
 export interface SpaceAvailability {
@@ -82,4 +94,28 @@ export async function getSpaceRequest(id: string) {
 export async function getSpaceAvailabilityRequest(id: string, date: string) {
   const { data } = await api.get(`/spaces/${id}/availability`, { params: { date } });
   return unwrapData<SpaceAvailability>(data);
+}
+
+export async function createSpaceRequest(input: SpaceInput) {
+  const { data } = await api.post("/spaces", input);
+  return unwrapData<Space>(data);
+}
+
+export async function updateSpaceRequest(id: string, input: Partial<SpaceInput>) {
+  const { data } = await api.put(`/spaces/${id}`, input);
+  return unwrapData<Space>(data);
+}
+
+export async function deleteSpaceRequest(id: string) {
+  await api.delete(`/spaces/${id}`);
+}
+
+export async function listDeletedSpacesRequest() {
+  const { data } = await api.get("/spaces/deleted");
+  return unwrapData<Space[]>(data);
+}
+
+export async function restoreSpaceRequest(id: string) {
+  const { data } = await api.put(`/spaces/${id}/restore`);
+  return unwrapData<Space>(data);
 }

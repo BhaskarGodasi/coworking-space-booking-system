@@ -13,6 +13,12 @@ import {
 
 export const spaceRouter = Router();
 
+spaceRouter.get(
+  "/deleted",
+  requireAuth,
+  requireRole(ROLES.ADMIN),
+  spaceController.listDeleted,
+);
 spaceRouter.get("/", validateQuery(ListSpacesQueryDTO), spaceController.list);
 spaceRouter.get("/:id", spaceController.getById);
 spaceRouter.get(
@@ -36,3 +42,9 @@ spaceRouter.put(
   spaceController.update,
 );
 spaceRouter.delete("/:id", requireAuth, requireRole(ROLES.ADMIN), spaceController.remove);
+spaceRouter.put(
+  "/:id/restore",
+  requireAuth,
+  requireRole(ROLES.ADMIN),
+  spaceController.restore,
+);

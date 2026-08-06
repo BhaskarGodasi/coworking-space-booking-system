@@ -1,5 +1,6 @@
 import { PrismaClient, Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
+import { overlapsRange } from "../utils/overlap";
 
 export interface CreateMaintenanceInput {
   spaceId: string;
@@ -27,8 +28,7 @@ export const maintenanceRepository = {
     return tx.maintenance.findFirst({
       where: {
         spaceId,
-        startTime: { lt: endTime },
-        endTime: { gt: startTime },
+        ...overlapsRange(startTime, endTime),
         ...(excludeMaintenanceId ? { id: { not: excludeMaintenanceId } } : {}),
       },
     });
