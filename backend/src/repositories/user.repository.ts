@@ -1,3 +1,4 @@
+import { PrismaClient, Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 
 export interface CreateUserInput {
@@ -7,17 +8,19 @@ export interface CreateUserInput {
   lastName: string;
 }
 
+type PrismaClientOrTx = PrismaClient | Prisma.TransactionClient;
+
 export const userRepository = {
-  findByEmail(email: string) {
-    return prisma.user.findUnique({ where: { email } });
+  findByEmail(email: string, client: PrismaClientOrTx = prisma) {
+    return client.user.findUnique({ where: { email } });
   },
 
-  findById(id: string) {
-    return prisma.user.findUnique({ where: { id } });
+  findById(id: string, client: PrismaClientOrTx = prisma) {
+    return client.user.findUnique({ where: { id } });
   },
 
-  create(input: CreateUserInput) {
-    return prisma.user.create({
+  create(input: CreateUserInput, client: PrismaClientOrTx = prisma) {
+    return client.user.create({
       data: {
         email: input.email,
         passwordHash: input.passwordHash,

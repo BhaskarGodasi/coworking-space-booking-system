@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from "express";
-import { verifyAccessToken, JwtPayload } from "../utils/jwt.utils";
+import { verifyAccessToken } from "../utils/jwt.utils";
+import { JwtPayload } from "../types/jwt.types";
 import { UnauthorizedError } from "../errors/AppError";
 
 declare global {

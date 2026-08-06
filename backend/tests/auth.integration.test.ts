@@ -68,6 +68,33 @@ describe("Auth endpoints", () => {
       expect(res.status).toBe(400);
       expect(res.body.error.code).toBe("VALIDATION_ERROR");
     });
+
+    it("resolves concurrent registrations for the same email to exactly one 201 and the rest 409, with no 500s", async () => {
+      const payload = {
+        email: "auth-int-test-concurrent-register@example.com",
+        password: "password123",
+        firstName: "Jane",
+        lastName: "Doe",
+      };
+
+      const responses = await Promise.all(
+        Array.from({ length: 8 }, () => request(app).post("/api/auth/register").send(payload)),
+      );
+
+      const created = responses.filter((res) => res.status === 201);
+      const conflicts = responses.filter((res) => res.status === 409);
+      const unexpected = responses.filter((res) => res.status !== 201 && res.status !== 409);
+
+      expect(created).toHaveLength(1);
+      expect(conflicts).toHaveLength(responses.length - 1);
+      expect(unexpected).toHaveLength(0);
+      conflicts.forEach((res) => {
+        expect(res.body.error.code).toBe("CONFLICT");
+      });
+
+      const userCount = await prisma.user.count({ where: { email: payload.email } });
+      expect(userCount).toBe(1);
+    });
   });
 
   describe("POST /api/auth/login", () => {
@@ -158,6 +185,30 @@ describe("Auth endpoints", () => {
       const secondAttempt = await request(app).post("/api/auth/refresh").set("Cookie", cookies);
 
       expect(secondAttempt.status).toBe(401);
+    });
+
+    it("under concurrent refresh requests with the same cookie, exactly one succeeds", async () => {
+      const cookies = await registerAndLogin("auth-int-test-refresh-concurrent@example.com");
+
+      const responses = await Promise.all(
+        Array.from({ length: 8 }, () =>
+          request(app).post("/api/auth/refresh").set("Cookie", cookies),
+        ),
+      );
+
+      const succeeded = responses.filter((res) => res.status === 200);
+      const rejected = responses.filter((res) => res.status === 401);
+      const unexpected = responses.filter((res) => res.status !== 200 && res.status !== 401);
+
+      expect(succeeded).toHaveLength(1);
+      expect(rejected).toHaveLength(responses.length - 1);
+      expect(unexpected).toHaveLength(0);
+
+      // The one successful rotation must itself still work as a fresh, valid token.
+      const newCookie = succeeded[0].headers["set-cookie"];
+      const newCookieArray = Array.isArray(newCookie) ? newCookie : [newCookie];
+      const followUp = await request(app).post("/api/auth/refresh").set("Cookie", newCookieArray);
+      expect(followUp.status).toBe(200);
     });
 
     it("rejects a request with no refresh cookie", async () => {

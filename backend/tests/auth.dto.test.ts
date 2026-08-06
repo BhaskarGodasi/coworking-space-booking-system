@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { RegisterDto, LoginDto } from "../src/dtos/auth.dto";
+import { RegisterDTO, LoginDTO } from "../src/dtos/auth.dto";
 
-describe("RegisterDto", () => {
+describe("RegisterDTO", () => {
   it("accepts a valid registration payload", () => {
-    const result = RegisterDto.safeParse({
+    const result = RegisterDTO.safeParse({
       email: "user@example.com",
       password: "password123",
       firstName: "Jane",
@@ -14,7 +14,7 @@ describe("RegisterDto", () => {
   });
 
   it("lowercases the email", () => {
-    const result = RegisterDto.safeParse({
+    const result = RegisterDTO.safeParse({
       email: "User@Example.COM",
       password: "password123",
       firstName: "Jane",
@@ -28,7 +28,7 @@ describe("RegisterDto", () => {
   });
 
   it("rejects an invalid email format", () => {
-    const result = RegisterDto.safeParse({
+    const result = RegisterDTO.safeParse({
       email: "not-an-email",
       password: "password123",
       firstName: "Jane",
@@ -39,7 +39,7 @@ describe("RegisterDto", () => {
   });
 
   it("rejects a password shorter than 8 characters", () => {
-    const result = RegisterDto.safeParse({
+    const result = RegisterDTO.safeParse({
       email: "user@example.com",
       password: "short",
       firstName: "Jane",
@@ -49,8 +49,41 @@ describe("RegisterDto", () => {
     expect(result.success).toBe(false);
   });
 
+  it("rejects a password with letters only (no number)", () => {
+    const result = RegisterDTO.safeParse({
+      email: "user@example.com",
+      password: "onlyletters",
+      firstName: "Jane",
+      lastName: "Doe",
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a password with numbers only (no letter)", () => {
+    const result = RegisterDTO.safeParse({
+      email: "user@example.com",
+      password: "12345678",
+      firstName: "Jane",
+      lastName: "Doe",
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts a password with both letters and numbers", () => {
+    const result = RegisterDTO.safeParse({
+      email: "user@example.com",
+      password: "password123",
+      firstName: "Jane",
+      lastName: "Doe",
+    });
+
+    expect(result.success).toBe(true);
+  });
+
   it("rejects a payload with an empty first or last name", () => {
-    const result = RegisterDto.safeParse({
+    const result = RegisterDTO.safeParse({
       email: "user@example.com",
       password: "password123",
       firstName: "",
@@ -61,7 +94,7 @@ describe("RegisterDto", () => {
   });
 
   it("rejects a client-supplied role field", () => {
-    const result = RegisterDto.safeParse({
+    const result = RegisterDTO.safeParse({
       email: "user@example.com",
       password: "password123",
       firstName: "Jane",
@@ -73,9 +106,9 @@ describe("RegisterDto", () => {
   });
 });
 
-describe("LoginDto", () => {
+describe("LoginDTO", () => {
   it("accepts a valid login payload", () => {
-    const result = LoginDto.safeParse({
+    const result = LoginDTO.safeParse({
       email: "user@example.com",
       password: "anything",
     });
@@ -84,12 +117,12 @@ describe("LoginDto", () => {
   });
 
   it("rejects a missing password", () => {
-    const result = LoginDto.safeParse({ email: "user@example.com" });
+    const result = LoginDTO.safeParse({ email: "user@example.com" });
     expect(result.success).toBe(false);
   });
 
   it("rejects an invalid email", () => {
-    const result = LoginDto.safeParse({ email: "not-an-email", password: "x" });
+    const result = LoginDTO.safeParse({ email: "not-an-email", password: "x" });
     expect(result.success).toBe(false);
   });
 });

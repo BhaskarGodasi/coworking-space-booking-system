@@ -1,11 +1,7 @@
 import jwt, { SignOptions } from "jsonwebtoken";
 import crypto from "crypto";
 import { env } from "../config/env";
-
-export interface JwtPayload {
-  userId: string;
-  role: string;
-}
+import { JwtPayload } from "../types/jwt.types";
 
 export function signAccessToken(payload: JwtPayload): string {
   const options: SignOptions = { expiresIn: env.JWT_EXPIRES_IN as SignOptions["expiresIn"] };
@@ -18,6 +14,18 @@ export function verifyAccessToken(token: string): JwtPayload {
 
 export function generateRefreshToken(): string {
   return crypto.randomBytes(64).toString("hex");
+}
+
+/**
+ * Refresh tokens are bearer credentials at rest, so the database stores only
+ * this one-way hash (not the token itself) -- a database-level read can no
+ * longer be replayed as a live session. SHA-256 is used rather than bcrypt
+ * because this is an exact-match lookup key, not a slow-verify secret: the
+ * token already carries 512 bits of CSPRNG entropy, so there is nothing for
+ * a per-hash salt+cost-factor to defend against.
+ */
+export function hashRefreshToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
 }
 
 export function refreshTokenExpiryDate(): Date {
