@@ -1,16 +1,15 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
-
-function HomePage() {
-  return <h1>Co-working Space Booking System</h1>;
-}
+import SpaceListPage from "./pages/SpaceListPage";
+import SpaceDetailsPage from "./pages/SpaceDetailsPage";
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<HomePage />} />
+        <Route path="/" element={<SpaceListPage />} />
+        <Route path="/spaces/:id" element={<SpaceDetailsPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
       </Routes>
