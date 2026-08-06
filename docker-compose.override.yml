@@ -5,20 +5,32 @@ services:
 
   backend:
     build:
-      target: builder
+      target: backend-builder
     command: sh -c "npx prisma migrate deploy && npm run dev"
+    ports:
+      - "3000:3000"
     volumes:
       - ./backend/src:/app/src
       - ./backend/prisma:/app/prisma
     environment:
       NODE_ENV: development
 
+  # Dev-only: the production image serves the built frontend from Express
+  # (see backend/Dockerfile's runner stage), but during development this
+  # runs Vite's own dev server for HMR, talking to the backend service
+  # directly rather than through any bundled static build.
   frontend:
     build:
-      target: builder
+      context: .
+      dockerfile: backend/Dockerfile
+      target: frontend-builder
     command: npm run dev -- --host
     volumes:
-      - ./frontend/src:/app/src
-      - ./frontend/index.html:/app/index.html
+      - ./frontend/src:/app/frontend/src
+      - ./frontend/index.html:/app/frontend/index.html
     ports:
       - "5173:5173"
+    depends_on:
+      - backend
+    networks:
+      - web_network

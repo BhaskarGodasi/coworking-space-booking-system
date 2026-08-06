@@ -1,0 +1,37 @@
+databases:
+  - name: coworking-db
+    plan: free
+    postgresMajorVersion: "15"
+
+services:
+  - type: web
+    name: coworking-app
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    # prisma migrate deploy already runs as part of the image's own start
+    # command (backend/Dockerfile's CMD) so it applies on every container
+    # start, not only on deploy. That's safe for this single-instance plan
+    # (migrate deploy no-ops when nothing is pending) but would race if this
+    # service is ever scaled to multiple instances -- see
+    # RENDER_DEPLOYMENT.md's "Scaling beyond one instance" section before
+    # raising numInstances above 1.
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: coworking-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: REFRESH_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 15m
+      - key: REFRESH_EXPIRES_IN
+        value: 7d
+      - key: CLIENT_URL
+        sync: false
