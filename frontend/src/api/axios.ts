@@ -14,7 +14,7 @@ export const api = axios.create({
 // since `isRefreshing` is already true at that point, it would queue
 // itself rather than surfacing as a rejection, leaving both the refresh
 // call and every request queued behind it pending forever.
-const refreshClient = axios.create({ baseURL, withCredentials: true });
+export const refreshClient = axios.create({ baseURL, withCredentials: true });
 
 api.interceptors.request.use((config) => {
   const { accessToken } = useAuthStore.getState();

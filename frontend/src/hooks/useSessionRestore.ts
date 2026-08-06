@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { api, unwrapData } from "../api/axios";
+import { refreshClient, unwrapData } from "../api/axios";
 import { useAuthStore } from "../store/authStore";
 import { decodeAccessToken } from "../utils/jwt";
 
@@ -11,6 +11,16 @@ import { decodeAccessToken } from "../utils/jwt";
  * fresh logout. This attempts one silent POST /api/auth/refresh using
  * that cookie; a 401 (no cookie, or an expired/already-rotated one)
  * simply leaves the user logged out, which is the correct fallback.
+ *
+ * This MUST use `refreshClient`, not `api`. `api` carries the response
+ * interceptor that redirects to /login on any refresh failure -- correct
+ * for a 401 raised by an authenticated call on a protected route, but
+ * wrong here: this call fires unconditionally on every page load,
+ * including public ones (Visitor-accessible routes), so routing it
+ * through that interceptor would force every anonymous visitor to
+ * /login. `refreshClient` has no interceptors, so a failed restore just
+ * falls through to this function's own catch and leaves the visitor
+ * exactly where they were.
  */
 export function useSessionRestore() {
   const setAccessToken = useAuthStore((state) => state.setAccessToken);
@@ -22,7 +32,7 @@ export function useSessionRestore() {
 
     async function restore() {
       try {
-        const { data } = await api.post("/auth/refresh");
+        const { data } = await refreshClient.post("/auth/refresh");
         const { accessToken } = unwrapData<{ accessToken: string }>(data);
         const decoded = decodeAccessToken(accessToken);
 

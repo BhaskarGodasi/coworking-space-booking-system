@@ -83,7 +83,7 @@ PORT=3000
 
 # Database
 # Format: postgresql://USER:PASSWORD@HOST:PORT/DATABASE
-DATABASE_URL="postgresql://postgres:password123@db:5432/coworking"
+DATABASE_URL="postgresql://postgres:generate-a-secure-database-password-here@db:5432/coworking"
 
 # Authentication
 # Must be at least 32 characters, base64 or random string

@@ -31,9 +31,44 @@ export interface SpaceAvailability {
   maintenance: Array<{ startTime: string; endTime: string }>;
 }
 
+function isSpaceListMeta(meta: unknown): meta is SpaceListMeta {
+  return (
+    typeof meta === "object" &&
+    meta !== null &&
+    typeof (meta as SpaceListMeta).total === "number" &&
+    typeof (meta as SpaceListMeta).page === "number" &&
+    typeof (meta as SpaceListMeta).limit === "number" &&
+    typeof (meta as SpaceListMeta).totalPages === "number"
+  );
+}
+
+function isSpace(item: unknown): item is Space {
+  return (
+    typeof item === "object" &&
+    item !== null &&
+    typeof (item as Space).id === "string" &&
+    typeof (item as Space).name === "string" &&
+    typeof (item as Space).capacity === "number" &&
+    Array.isArray((item as Space).amenities)
+  );
+}
+
+/**
+ * A deeper guard than unwrapData: the paginated shape here has two nested
+ * pieces (an array of items, a meta object) that unwrapData's single-level
+ * "does `data` exist" check doesn't validate. Checking only Array.isArray on
+ * the outer list would let a response with malformed items (e.g. `[null]`)
+ * or a malformed meta (e.g. `{}`) pass through and blow up later, deep
+ * inside SpaceCard/SpaceListPage instead of here with a clear error.
+ */
 export async function listSpacesRequest(params: ListSpacesParams) {
   const { data } = await api.get("/spaces", { params });
-  if (!data || !Array.isArray(data.data) || typeof data.meta !== "object" || data.meta === null) {
+  if (
+    !data ||
+    !Array.isArray(data.data) ||
+    !data.data.every(isSpace) ||
+    !isSpaceListMeta(data.meta)
+  ) {
     throw new Error("Unexpected response shape from server");
   }
   return data as { data: Space[]; meta: SpaceListMeta };
