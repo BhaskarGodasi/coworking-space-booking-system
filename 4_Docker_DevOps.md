@@ -8,6 +8,15 @@
 
 ---
 
+> **Superseded by the Render deployment consolidation.** The two-container
+> Nginx design described in this document (separate frontend/Nginx and
+> backend/Node containers) was later replaced by a single combined
+> container -- Express serves both the API and the built React frontend on
+> one port, with no Nginx anywhere in the image. This section is kept as
+> the historical record of the original design; see
+> [RENDER_DEPLOYMENT.md](RENDER_DEPLOYMENT.md) and `backend/Dockerfile` for
+> the actual current architecture.
+
 ## Docker Container Architecture
 
 ### Multi-stage Builds & Non-Root Containers

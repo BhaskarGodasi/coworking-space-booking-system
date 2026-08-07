@@ -6,12 +6,17 @@ const strongPassword = z
   .regex(/[a-zA-Z]/, "Password must contain at least one letter")
   .regex(/[0-9]/, "Password must contain at least one number");
 
+const nonBlankName = z
+  .string()
+  .min(1)
+  .refine((val) => val.trim().length > 0, "Must not be blank");
+
 export const RegisterDTO = z
   .object({
     email: z.string().email().transform((val) => val.toLowerCase()),
     password: strongPassword,
-    firstName: z.string().min(1),
-    lastName: z.string().min(1),
+    firstName: nonBlankName,
+    lastName: nonBlankName,
   })
   .strict();
 

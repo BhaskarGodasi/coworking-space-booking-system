@@ -221,7 +221,7 @@ function SpaceManager() {
           </TabsList>
           
           <TabsContent value="active" className="mt-0">
-            <div className="rounded-md border">
+            <div className="rounded-md border overflow-x-auto">
               {spacesQuery.isLoading && (
                 <div className="p-4 space-y-4">
                   <Skeleton className="h-10 w-full" />
@@ -289,7 +289,7 @@ function SpaceManager() {
           </TabsContent>
 
           <TabsContent value="deleted" className="mt-0">
-            <div className="rounded-md border">
+            <div className="rounded-md border overflow-x-auto">
               {deletedSpacesQuery.isLoading && (
                 <div className="p-4 space-y-4">
                   <Skeleton className="h-10 w-full" />

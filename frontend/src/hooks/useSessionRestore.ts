@@ -21,6 +21,26 @@ import { decodeAccessToken } from "../utils/jwt";
  * /login. `refreshClient` has no interceptors, so a failed restore just
  * falls through to this function's own catch and leaves the visitor
  * exactly where they were.
+ *
+ * Refresh tokens are single-use (see backend/src/services/auth.service.ts):
+ * if two tabs sharing the same browser cookie jar both reload around the
+ * same moment, both fire this same POST /auth/refresh with the identical
+ * current cookie, and exactly one gets the rotated successor -- the other
+ * gets a 401 even though the user's session is perfectly alive, because it
+ * lost a race against its own other tab, not because the session expired.
+ * Without coordination that tab settles into a false "logged out" state
+ * with no automatic recovery (confirmed via live multi-tab testing).
+ *
+ * The Web Locks API serializes this critical section across every tab/frame
+ * sharing this origin: only one at a time is inside the lock callback, so a
+ * second tab's call simply waits instead of firing a competing request with
+ * a cookie value that's about to be invalidated out from under it. By the
+ * time it acquires the lock, the browser has already applied the first
+ * tab's Set-Cookie, so its own attempt reads that fresh, still-valid token
+ * instead of replaying the one that just lost. Falls back to running
+ * unlocked when navigator.locks isn't available (older browsers) --
+ * unsynchronized is exactly today's pre-fix behavior, not a new failure
+ * mode.
  */
 export function useSessionRestore() {
   const setAccessToken = useAuthStore((state) => state.setAccessToken);
@@ -30,18 +50,26 @@ export function useSessionRestore() {
   useEffect(() => {
     let cancelled = false;
 
+    async function attemptRefresh() {
+      const { data } = await refreshClient.post("/auth/refresh");
+      const { accessToken } = unwrapData<{ accessToken: string }>(data);
+      const decoded = decodeAccessToken(accessToken);
+
+      if (cancelled) return;
+
+      if (decoded) {
+        login({ id: decoded.userId, role: decoded.role }, accessToken);
+      } else {
+        setAccessToken(accessToken);
+      }
+    }
+
     async function restore() {
       try {
-        const { data } = await refreshClient.post("/auth/refresh");
-        const { accessToken } = unwrapData<{ accessToken: string }>(data);
-        const decoded = decodeAccessToken(accessToken);
-
-        if (cancelled) return;
-
-        if (decoded) {
-          login({ id: decoded.userId, role: decoded.role }, accessToken);
+        if (typeof navigator !== "undefined" && navigator.locks) {
+          await navigator.locks.request("auth-refresh", attemptRefresh);
         } else {
-          setAccessToken(accessToken);
+          await attemptRefresh();
         }
       } catch {
         // No valid refresh cookie -- the user is simply not logged in.

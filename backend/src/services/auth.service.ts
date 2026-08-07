@@ -69,6 +69,22 @@ export const authService = {
       // token, exactly one observes a non-null result. The other gets null
       // and is rejected, so a single token can only ever produce one
       // successor.
+      //
+      // NOTE: because this whole block runs in one transaction, an
+      // expired token's delete is rolled back along with the throw below
+      // (Prisma transactions are all-or-nothing) -- an expired row is
+      // NOT actually consumed on a rejected attempt, it just keeps
+      // failing its own expiry check on every subsequent presentation.
+      // That's a data-hygiene gap (rows for abandoned/expired sessions
+      // accumulate until a periodic sweep, which does not currently
+      // exist -- see backend/prisma/schema.prisma's unused
+      // @@index([expiresAt])), not a security one: an expired token can
+      // never mint a session no matter how many times it's replayed.
+      // Deliberately not "fixed" by moving the delete outside this
+      // transaction -- doing so would mean a DB error while minting the
+      // *replacement* token permanently burns the presented one instead
+      // of leaving it intact for retry, trading a cosmetic cleanup gap
+      // for a real reliability regression.
       const consumed = await refreshTokenRepository.consumeToken(presentedHash, tx);
       if (!consumed || consumed.expiresAt < new Date()) {
         throw new UnauthorizedError("Invalid or expired refresh token");

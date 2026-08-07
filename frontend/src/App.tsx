@@ -57,7 +57,7 @@ function App() {
           }
         >
           <Route index element={<MyBookingsPage />} />
-          {/* Future routes: /dashboard/profile, etc. */}
+          <Route path="*" element={<NotFoundPage />} />
         </Route>
 
         {/* Admin Dashboard Routes */}
@@ -73,6 +73,7 @@ function App() {
           <Route path="spaces" element={<AdminSpacesPage />} />
           <Route path="bookings" element={<AdminBookingsPage />} />
           <Route path="maintenance" element={<AdminMaintenancePage />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

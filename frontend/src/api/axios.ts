@@ -86,7 +86,23 @@ api.interceptors.response.use(
     isRefreshing = true;
 
     try {
-      const { data } = await refreshClient.post("/auth/refresh");
+      // `isRefreshing`/`pendingQueue` above only dedupe concurrent 401s
+      // within THIS tab's JS heap. Two different tabs sharing the same
+      // browser (and therefore the same single-use refresh cookie) can
+      // each independently reach this point at the same moment -- e.g.
+      // both had an access token expire around the same time -- and race
+      // each other's /auth/refresh call. Since refresh tokens are
+      // single-use, one gets a fresh cookie and the other gets a 401 for
+      // a session that is, from the user's perspective, still perfectly
+      // valid. The Web Locks API serializes this across tabs so the
+      // loser's attempt runs AFTER the winner's Set-Cookie has already
+      // landed, reading the now-current token instead of replaying a
+      // stale one. See useSessionRestore.ts for the equivalent race on
+      // initial page load.
+      const { data } =
+        typeof navigator !== "undefined" && navigator.locks
+          ? await navigator.locks.request("auth-refresh", () => refreshClient.post("/auth/refresh"))
+          : await refreshClient.post("/auth/refresh");
       const { accessToken: newAccessToken } = unwrapData<{ accessToken: string }>(data);
       useAuthStore.getState().setAccessToken(newAccessToken);
       settleQueue(newAccessToken);

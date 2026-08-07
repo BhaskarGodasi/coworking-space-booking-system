@@ -3,13 +3,26 @@ import crypto from "crypto";
 import { env } from "../config/env";
 import { JwtPayload } from "../types/jwt.types";
 
+const ACCESS_TOKEN_ALGORITHM = "HS256";
+
 export function signAccessToken(payload: JwtPayload): string {
-  const options: SignOptions = { expiresIn: env.JWT_EXPIRES_IN as SignOptions["expiresIn"] };
+  const options: SignOptions = {
+    expiresIn: env.JWT_EXPIRES_IN as SignOptions["expiresIn"],
+    algorithm: ACCESS_TOKEN_ALGORITHM,
+  };
   return jwt.sign(payload, env.JWT_SECRET, options);
 }
 
+/**
+ * Without an explicit algorithms allow-list, jwt.verify() accepts a token
+ * signed with ANY symmetric algorithm (HS256/HS384/HS512) as long as it
+ * was signed with this same secret -- not just the HS256 this app actually
+ * issues. That's not itself a forgeable-without-the-secret hole, but
+ * pinning the one algorithm this app uses is a no-cost defense-in-depth
+ * measure against algorithm-confusion attacks and future library bugs.
+ */
 export function verifyAccessToken(token: string): JwtPayload {
-  return jwt.verify(token, env.JWT_SECRET) as JwtPayload;
+  return jwt.verify(token, env.JWT_SECRET, { algorithms: [ACCESS_TOKEN_ALGORITHM] }) as JwtPayload;
 }
 
 export function generateRefreshToken(): string {
@@ -33,7 +46,7 @@ export function refreshTokenExpiryDate(): Date {
   return new Date(Date.now() + durationMs);
 }
 
-function parseDurationToMs(duration: string): number {
+export function parseDurationToMs(duration: string): number {
   const match = /^(\d+)([smhd])$/.exec(duration);
   if (!match) {
     throw new Error(`Invalid duration format: ${duration}`);
