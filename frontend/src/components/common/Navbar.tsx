@@ -1,21 +1,37 @@
 import * as React from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { Moon, Sun, Menu, UserCircle } from "lucide-react"
+import { Moon, Sun, Menu } from "lucide-react"
 
 import { useTheme } from "./ThemeProvider"
 import { Button } from "../ui/button"
+import { Avatar, AvatarFallback } from "../ui/avatar"
+import { ConfirmDialog } from "./ConfirmDialog"
 import { useAuthStore } from "../../store/authStore"
+import { useToast } from "../ui/toast"
 
 export function Navbar() {
   const { theme, setTheme } = useTheme()
-  const { user, token, logout } = useAuthStore()
+  const { user, isRestoring, logout } = useAuthStore()
   const navigate = useNavigate()
+  const { addToast } = useToast()
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false)
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = React.useState(false)
 
-  const handleLogout = () => {
+  const isAuthenticated = Boolean(user) && !isRestoring
+
+  function handleLogout() {
     logout()
+    setLogoutConfirmOpen(false)
+    setMobileMenuOpen(false)
+    addToast({ title: "Logged out", variant: "default" })
     navigate("/")
   }
+
+  // A session restored from the refresh cookie only carries id/role (see
+  // authStore.ts) -- there's no name/email to show, so the avatar falls
+  // back to the user's role initial rather than depending on a field that
+  // may not be populated.
+  const avatarInitial = user ? (user.firstName?.[0] ?? user.role[0]) : ""
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -28,17 +44,17 @@ export function Navbar() {
           </Link>
           <nav className="hidden gap-6 md:flex">
             <Link
+              to="/"
+              className="flex items-center text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Home
+            </Link>
+            <Link
               to="/spaces"
               className="flex items-center text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
-              Browse Spaces
+              Spaces
             </Link>
-            <a
-              href="#features"
-              className="flex items-center text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-            >
-              Features
-            </a>
           </nav>
         </div>
         <div className="flex flex-1 items-center justify-end space-x-4">
@@ -54,15 +70,26 @@ export function Navbar() {
               <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
             </Button>
             
-            {token && user ? (
+            {isAuthenticated && user ? (
               <div className="hidden md:flex items-center space-x-2">
-                <Button 
-                  variant="outline"
-                  onClick={() => navigate(user.role === "ADMIN" ? "/admin" : "/dashboard")}
-                >
-                  Dashboard
-                </Button>
-                <Button variant="ghost" onClick={handleLogout}>
+                {user.role === "ADMIN" ? (
+                  <Button variant="outline" onClick={() => navigate("/admin")}>
+                    Admin Dashboard
+                  </Button>
+                ) : (
+                  <>
+                    <Button variant="outline" onClick={() => navigate("/dashboard")}>
+                      Dashboard
+                    </Button>
+                    <Button variant="outline" onClick={() => navigate("/dashboard")}>
+                      My Bookings
+                    </Button>
+                  </>
+                )}
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback>{avatarInitial}</AvatarFallback>
+                </Avatar>
+                <Button variant="ghost" onClick={() => setLogoutConfirmOpen(true)}>
                   Logout
                 </Button>
               </div>
@@ -92,24 +119,40 @@ export function Navbar() {
       {mobileMenuOpen && (
         <div className="container md:hidden py-4 pb-6 space-y-4 border-b bg-background">
           <nav className="flex flex-col space-y-4">
-            <Link 
-              to="/spaces" 
+            <Link
+              to="/"
               className="text-sm font-medium"
               onClick={() => setMobileMenuOpen(false)}
             >
-              Browse Spaces
+              Home
             </Link>
-            {token && user ? (
+            <Link
+              to="/spaces"
+              className="text-sm font-medium"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Spaces
+            </Link>
+            {isAuthenticated && user ? (
               <>
-                <Link 
-                  to={user.role === "ADMIN" ? "/admin" : "/dashboard"} 
+                <Link
+                  to={user.role === "ADMIN" ? "/admin" : "/dashboard"}
                   className="text-sm font-medium"
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  Dashboard
+                  {user.role === "ADMIN" ? "Admin Dashboard" : "Dashboard"}
                 </Link>
-                <button 
-                  onClick={() => { handleLogout(); setMobileMenuOpen(false); }}
+                {user.role !== "ADMIN" && (
+                  <Link
+                    to="/dashboard"
+                    className="text-sm font-medium"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    My Bookings
+                  </Link>
+                )}
+                <button
+                  onClick={() => setLogoutConfirmOpen(true)}
                   className="text-sm font-medium text-left text-destructive"
                 >
                   Logout
@@ -136,6 +179,16 @@ export function Navbar() {
           </nav>
         </div>
       )}
+
+      <ConfirmDialog
+        open={logoutConfirmOpen}
+        onOpenChange={setLogoutConfirmOpen}
+        title="Log out?"
+        description="You'll need to log in again to access your dashboard and bookings."
+        confirmLabel="Logout"
+        destructive
+        onConfirm={handleLogout}
+      />
     </header>
   )
 }

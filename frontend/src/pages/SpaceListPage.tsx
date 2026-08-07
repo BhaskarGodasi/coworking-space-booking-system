@@ -56,6 +56,8 @@ function SpaceListPage() {
     setPage(1);
   }
 
+  const hasActiveFilters = Boolean(search || type !== "all" || minCapacity || date);
+
   return (
     <div className="container py-10 px-4 md:px-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
@@ -168,15 +170,22 @@ function SpaceListPage() {
           )}
 
           {!isLoading && !isError && data && data.data.length === 0 && (
-            <EmptyState 
-              title="No spaces found" 
-              description="No spaces match your current search filters. Try adjusting them." 
-              action={
-                <Button variant="outline" onClick={handleClearFilters}>
-                  Clear filters
-                </Button>
-              }
-            />
+            hasActiveFilters ? (
+              <EmptyState
+                title="No matching spaces found"
+                description="No spaces match your current search filters. Try adjusting them."
+                action={
+                  <Button variant="outline" onClick={handleClearFilters}>
+                    Reset Filters
+                  </Button>
+                }
+              />
+            ) : (
+              <EmptyState
+                title="No Spaces Available"
+                description="There are currently no workspaces available."
+              />
+            )
           )}
 
           {!isLoading && !isError && data && data.data.length > 0 && (

@@ -8,11 +8,13 @@ import { Button } from "./ui/button";
 import { Skeleton } from "./ui/skeleton";
 import { ErrorState } from "./common/ErrorState";
 import { EmptyState } from "./common/EmptyState";
+import { useToast } from "./ui/toast";
 
 function ApprovalQueue() {
   const { data, isLoading, isError, refetch } = useAdminBookings("PENDING");
   const approveBooking = useApproveBooking();
   const rejectBooking = useRejectBooking();
+  const { addToast } = useToast();
 
   if (isLoading) {
     return (
@@ -68,7 +70,17 @@ function ApprovalQueue() {
                   variant="outline"
                   className="text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/20"
                   disabled={approveBooking.isPending || rejectBooking.isPending}
-                  onClick={() => rejectBooking.mutate(booking.id)}
+                  onClick={() =>
+                    rejectBooking.mutate(booking.id, {
+                      onSuccess: () => addToast({ title: "Booking rejected", variant: "default" }),
+                      onError: () =>
+                        addToast({
+                          title: "Could not reject booking",
+                          description: "Please try again.",
+                          variant: "destructive",
+                        }),
+                    })
+                  }
                 >
                   <X className="mr-1 h-4 w-4" />
                   Reject
@@ -77,7 +89,17 @@ function ApprovalQueue() {
                   size="sm"
                   className="bg-emerald-600 hover:bg-emerald-700 text-white"
                   disabled={approveBooking.isPending || rejectBooking.isPending}
-                  onClick={() => approveBooking.mutate(booking.id)}
+                  onClick={() =>
+                    approveBooking.mutate(booking.id, {
+                      onSuccess: () => addToast({ title: "Approval successful", variant: "success" }),
+                      onError: () =>
+                        addToast({
+                          title: "Could not approve booking",
+                          description: "Please try again.",
+                          variant: "destructive",
+                        }),
+                    })
+                  }
                 >
                   <Check className="mr-1 h-4 w-4" />
                   Approve

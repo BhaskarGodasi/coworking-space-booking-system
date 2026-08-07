@@ -13,6 +13,7 @@ import { Skeleton } from "./ui/skeleton";
 import { ErrorState } from "./common/ErrorState";
 import { EmptyState } from "./common/EmptyState";
 import { Badge } from "./ui/badge";
+import { useToast } from "./ui/toast";
 
 const STATUS_FILTERS: Array<BookingStatus | "all"> = ["all", "PENDING", "APPROVED", "REJECTED", "CANCELLED"];
 
@@ -44,6 +45,7 @@ function AllBookingsManager() {
   const spacesQuery = useSpaces({ page: 1, limit: 100 });
   const approveBooking = useApproveBooking();
   const rejectBooking = useRejectBooking();
+  const { addToast } = useToast();
 
   const spaceNameById = new Map((spacesQuery.data?.data ?? []).map((s) => [s.id, s.name]));
 
@@ -120,7 +122,18 @@ function AllBookingsManager() {
                             variant="outline"
                             className="text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/20 h-8"
                             disabled={approveBooking.isPending || rejectBooking.isPending}
-                            onClick={() => rejectBooking.mutate(booking.id)}
+                            onClick={() =>
+                              rejectBooking.mutate(booking.id, {
+                                onSuccess: () =>
+                                  addToast({ title: "Booking rejected", variant: "default" }),
+                                onError: () =>
+                                  addToast({
+                                    title: "Could not reject booking",
+                                    description: "Please try again.",
+                                    variant: "destructive",
+                                  }),
+                              })
+                            }
                             title="Reject"
                           >
                             <X className="h-4 w-4" />
@@ -129,7 +142,18 @@ function AllBookingsManager() {
                             size="sm"
                             className="bg-emerald-600 hover:bg-emerald-700 text-white h-8"
                             disabled={approveBooking.isPending || rejectBooking.isPending}
-                            onClick={() => approveBooking.mutate(booking.id)}
+                            onClick={() =>
+                              approveBooking.mutate(booking.id, {
+                                onSuccess: () =>
+                                  addToast({ title: "Approval successful", variant: "success" }),
+                                onError: () =>
+                                  addToast({
+                                    title: "Could not approve booking",
+                                    description: "Please try again.",
+                                    variant: "destructive",
+                                  }),
+                              })
+                            }
                             title="Approve"
                           >
                             <Check className="h-4 w-4" />

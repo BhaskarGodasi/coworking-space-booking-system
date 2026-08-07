@@ -118,6 +118,42 @@ target deployment here is a single instance; the change above is a
 one-line Dockerfile edit plus a dashboard setting if scaling need ever
 arises.
 
+## Seeding demo data
+
+`backend/prisma/seed.ts` creates a demo admin, a demo member, 10 sample
+spaces, sample bookings, and sample maintenance windows (see the root
+`README.md`'s "Demo Data / Seeding" section for exactly what it creates and
+its credentials). It's idempotent — safe to run more than once.
+
+Render's **Free** plan has no Shell tab (that requires a paid plan), so
+`docker compose exec backend npm run seed` — the command used for local
+Docker Compose — has no direct equivalent on Render Free. The seed script
+only needs a `DATABASE_URL` to run; it doesn't need to run *inside* the
+deployed container. Run it from your own machine against Render's
+database instead:
+
+```bash
+cd backend
+DATABASE_URL="<Render Postgres External Connection String>" npm run seed
+```
+
+Use the **External** connection string here (found on the Postgres
+instance's Render dashboard page), not the internal one — your machine
+isn't on Render's private network. This is the same approach used to
+promote a user to admin manually (see `README.md`), just running the seed
+script instead of a raw SQL `UPDATE`.
+
+If you're on a paid Render plan with Shell access, running it from the
+web service's Shell tab works too:
+
+```bash
+npm run seed
+```
+
+Either way, run it once after the first successful deploy (and again any
+time you want to confirm demo data is intact — it's idempotent, so
+re-running is always safe).
+
 ## Environment variables reference
 
 | Variable | Required | Source on Render | Notes |
@@ -148,6 +184,10 @@ Once deployed, verify against the service's public URL:
   existing booking and confirm it returns `409`
 - Visit a nonexistent path (e.g. `/does-not-exist`) and confirm the SPA's
   client-side 404 page renders (not a raw Express error)
+- After running the seed (see "Seeding demo data" above): log in as
+  `admin@coworkhub.com` / `Admin@123` and confirm it succeeds with the
+  `ADMIN` role, and confirm the 10 demo spaces are visible on the public
+  Spaces page without needing to log in first
 
 ## Rollback
 

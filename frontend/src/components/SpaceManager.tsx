@@ -18,6 +18,8 @@ import { EmptyState } from "./common/EmptyState";
 import { Badge } from "./ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import { ConfirmDialog } from "./common/ConfirmDialog";
+import { useToast } from "./ui/toast";
 
 interface SpaceFormState {
   name: string;
@@ -45,6 +47,8 @@ function SpaceManager() {
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<SpaceFormState>(EMPTY_FORM);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const { addToast } = useToast();
 
   function startEdit(space: Space) {
     setEditingId(space.id);
@@ -73,11 +77,52 @@ function SpaceManager() {
     if (editingId) {
       updateSpace.mutate(
         { id: editingId, input },
-        { onSuccess: () => cancelEdit() },
+        {
+          onSuccess: () => {
+            addToast({ title: "Space updated", variant: "success" });
+            cancelEdit();
+          },
+          onError: () => {
+            addToast({
+              title: "Could not update space",
+              description: "Please check the details and try again.",
+              variant: "destructive",
+            });
+          },
+        },
       );
     } else {
-      createSpace.mutate(input, { onSuccess: () => setForm(EMPTY_FORM) });
+      createSpace.mutate(input, {
+        onSuccess: () => {
+          addToast({ title: "Space created", variant: "success" });
+          setForm(EMPTY_FORM);
+        },
+        onError: () => {
+          addToast({
+            title: "Could not create space",
+            description: "Please check the details and try again.",
+            variant: "destructive",
+          });
+        },
+      });
     }
+  }
+
+  function confirmDelete() {
+    if (!deleteTargetId) return;
+    deleteSpace.mutate(deleteTargetId, {
+      onSuccess: () => {
+        addToast({ title: "Space deleted", variant: "success" });
+        setDeleteTargetId(null);
+      },
+      onError: () => {
+        addToast({
+          title: "Could not delete space",
+          description: "Please try again.",
+          variant: "destructive",
+        });
+      },
+    });
   }
 
   const activeMutation = editingId ? updateSpace : createSpace;
@@ -225,10 +270,10 @@ function SpaceManager() {
                             </Button>
                             <Button 
                               variant="ghost" 
-                              size="icon" 
+                              size="icon"
                               className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                              disabled={deleteSpace.isPending} 
-                              onClick={() => deleteSpace.mutate(space.id)}
+                              disabled={deleteSpace.isPending}
+                              onClick={() => setDeleteTargetId(space.id)}
                               title="Delete space"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -286,7 +331,18 @@ function SpaceManager() {
                             variant="outline"
                             size="sm"
                             disabled={restoreSpace.isPending}
-                            onClick={() => restoreSpace.mutate(space.id)}
+                            onClick={() =>
+                              restoreSpace.mutate(space.id, {
+                                onSuccess: () =>
+                                  addToast({ title: "Space restored", variant: "success" }),
+                                onError: () =>
+                                  addToast({
+                                    title: "Could not restore space",
+                                    description: "Please try again.",
+                                    variant: "destructive",
+                                  }),
+                              })
+                            }
                           >
                             <RotateCcw className="mr-2 h-4 w-4" /> Restore
                           </Button>
@@ -300,6 +356,17 @@ function SpaceManager() {
           </TabsContent>
         </Tabs>
       </div>
+
+      <ConfirmDialog
+        open={deleteTargetId !== null}
+        onOpenChange={(open) => !open && setDeleteTargetId(null)}
+        title="Delete this space?"
+        description="This will soft-delete the space. Existing bookings and maintenance windows are unaffected, and it can be restored later from the Deleted Spaces tab."
+        confirmLabel="Delete Space"
+        destructive
+        isConfirming={deleteSpace.isPending}
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 }

@@ -7,11 +7,13 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../components/ui/card";
+import { useToast } from "../components/ui/toast";
 
 function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const login = useAuthStore((state) => state.login);
+  const { addToast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +30,7 @@ function LoginPage() {
     try {
       const { accessToken, user } = await loginRequest({ email, password });
       login(user, accessToken);
+      addToast({ title: "Login successful", variant: "success" });
       // Redirect admins directly to their dashboard, otherwise to the intended page
       if (user.role === "ADMIN") {
         navigate("/admin");

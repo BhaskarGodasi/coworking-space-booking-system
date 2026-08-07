@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
-import { ArrowLeft, CalendarX2, CheckCircle2, Clock, XCircle } from "lucide-react";
+import { CalendarX2, CheckCircle2, Clock, XCircle } from "lucide-react";
 import { useOwnBookings } from "../hooks/useOwnBookings";
 import { useCancelBooking } from "../hooks/useCancelBooking";
 import { Booking } from "../api/bookings";
@@ -11,7 +11,9 @@ import { Button } from "../components/ui/button";
 import { Skeleton } from "../components/ui/skeleton";
 import { ErrorState } from "../components/common/ErrorState";
 import { EmptyState } from "../components/common/EmptyState";
+import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
+import { useToast } from "../components/ui/toast";
 
 function isCancellable(booking: Booking) {
   const isActiveStatus = booking.status === "PENDING" || booking.status === "APPROVED";
@@ -37,6 +39,25 @@ function StatusBadge({ status }: { status: Booking["status"] }) {
 function MyBookingsPage() {
   const { data, isLoading, isError, refetch } = useOwnBookings();
   const cancelBooking = useCancelBooking();
+  const { addToast } = useToast();
+  const [cancelTargetId, setCancelTargetId] = useState<string | null>(null);
+
+  function confirmCancel() {
+    if (!cancelTargetId) return;
+    cancelBooking.mutate(cancelTargetId, {
+      onSuccess: () => {
+        addToast({ title: "Booking cancelled", variant: "success" });
+        setCancelTargetId(null);
+      },
+      onError: () => {
+        addToast({
+          title: "Could not cancel booking",
+          description: "Please try again.",
+          variant: "destructive",
+        });
+      },
+    });
+  }
 
   return (
     <div className="space-y-6">
@@ -113,7 +134,7 @@ function MyBookingsPage() {
                           variant="destructive"
                           size="sm"
                           disabled={cancelBooking.isPending}
-                          onClick={() => cancelBooking.mutate(booking.id)}
+                          onClick={() => setCancelTargetId(booking.id)}
                         >
                           Cancel
                         </Button>
@@ -126,6 +147,18 @@ function MyBookingsPage() {
           )}
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={cancelTargetId !== null}
+        onOpenChange={(open) => !open && setCancelTargetId(null)}
+        title="Cancel this booking?"
+        description="This cannot be undone. You'll need to make a new booking if you change your mind."
+        confirmLabel="Cancel Booking"
+        cancelLabel="Keep Booking"
+        destructive
+        isConfirming={cancelBooking.isPending}
+        onConfirm={confirmCancel}
+      />
     </div>
   );
 }

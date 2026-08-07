@@ -41,12 +41,16 @@ function SpaceDetailsPage() {
 
   if (spaceQuery.isError || !spaceQuery.data) {
     return (
-      <div className="container py-20 px-4 md:px-6">
-        <ErrorState 
+      <div className="container py-20 px-4 md:px-6 space-y-6">
+        <ErrorState
           title="Space Not Found"
           message="Could not load this space. It may no longer exist."
-          action={<Button asChild><Link to="/spaces">Back to spaces</Link></Button>}
         />
+        <div className="flex justify-center">
+          <Button asChild>
+            <Link to="/spaces">Back to spaces</Link>
+          </Button>
+        </div>
       </div>
     );
   }
