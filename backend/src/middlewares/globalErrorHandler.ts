@@ -19,6 +19,28 @@ export function globalErrorHandler(
     });
   }
 
+  // express.json() rejects malformed request bodies with a SyntaxError
+  // that already carries the correct 4xx status (per Express's own
+  // body-parser convention: statusCode + expose: true) -- without this
+  // check it fell through to the generic 500 branch below, misreporting
+  // a client mistake (bad JSON) as a server failure.
+  if (
+    err instanceof SyntaxError &&
+    "status" in err &&
+    typeof err.status === "number" &&
+    err.status >= 400 &&
+    err.status < 500
+  ) {
+    return res.status(err.status).json({
+      success: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Malformed request body",
+        details: [],
+      },
+    });
+  }
+
   logger.error({ err });
 
   return res.status(500).json({

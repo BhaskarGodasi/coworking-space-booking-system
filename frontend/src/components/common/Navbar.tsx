@@ -7,24 +7,28 @@ import { Button } from "../ui/button"
 import { Avatar, AvatarFallback } from "../ui/avatar"
 import { ConfirmDialog } from "./ConfirmDialog"
 import { useAuthStore } from "../../store/authStore"
-import { useToast } from "../ui/toast"
+import { useLogout } from "../../hooks/useLogout"
 
 export function Navbar() {
   const { theme, setTheme } = useTheme()
-  const { user, isRestoring, logout } = useAuthStore()
+  const { user, isRestoring } = useAuthStore()
   const navigate = useNavigate()
-  const { addToast } = useToast()
+  const logout = useLogout()
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false)
   const [logoutConfirmOpen, setLogoutConfirmOpen] = React.useState(false)
+  const [isLoggingOut, setIsLoggingOut] = React.useState(false)
 
   const isAuthenticated = Boolean(user) && !isRestoring
 
-  function handleLogout() {
-    logout()
-    setLogoutConfirmOpen(false)
-    setMobileMenuOpen(false)
-    addToast({ title: "Logged out", variant: "default" })
-    navigate("/")
+  async function handleLogout() {
+    setIsLoggingOut(true)
+    try {
+      await logout()
+    } finally {
+      setIsLoggingOut(false)
+      setLogoutConfirmOpen(false)
+      setMobileMenuOpen(false)
+    }
   }
 
   // A session restored from the refresh cookie only carries id/role (see
@@ -187,6 +191,7 @@ export function Navbar() {
         description="You'll need to log in again to access your dashboard and bookings."
         confirmLabel="Logout"
         destructive
+        isConfirming={isLoggingOut}
         onConfirm={handleLogout}
       />
     </header>

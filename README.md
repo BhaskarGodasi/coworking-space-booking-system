@@ -30,7 +30,12 @@ Coworking space booking platform built with:
 **Backend**: Node.js, Express, TypeScript, Prisma, PostgreSQL
 **Frontend**: React, Vite
 **Auth**: JWT (access + refresh token rotation)
-**Infrastructure**: Docker, Docker Compose, Nginx
+**Infrastructure**: Docker, Docker Compose
+
+The production image is a single combined container: Express serves both
+the API and the built React frontend on one port. There is no separate
+Nginx or frontend container — see [Docker & DevOps](4_Docker_DevOps.md)
+and [Render deployment](RENDER_DEPLOYMENT.md) for the current architecture.
 
 ## Getting Started
 
@@ -39,7 +44,16 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-- Frontend: [http://localhost](http://localhost)
+This starts one combined container serving both the app and the API:
+
+- App: [http://localhost](http://localhost)
+- Health check: [http://localhost/health](http://localhost/health)
+
+For local development with hot-reload (separate Vite dev server + backend
+dev server, matching `docker-compose.override.yml`), the app and API run on
+different ports instead:
+
+- Frontend (Vite dev server): [http://localhost:5173](http://localhost:5173)
 - Backend: [http://localhost:3000](http://localhost:3000)
 - Backend health check: [http://localhost:3000/health](http://localhost:3000/health)
 

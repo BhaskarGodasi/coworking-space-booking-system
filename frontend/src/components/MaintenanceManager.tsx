@@ -186,7 +186,7 @@ function MaintenanceManager() {
 
       {/* Calendar List */}
       <div className="xl:col-span-2">
-        <div className="rounded-md border">
+        <div className="rounded-md border overflow-x-auto">
           {maintenanceQuery.isLoading && (
             <div className="p-4 space-y-4">
               <Skeleton className="h-10 w-full" />

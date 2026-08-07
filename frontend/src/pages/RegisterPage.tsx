@@ -6,9 +6,11 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../components/ui/card";
+import { useToast } from "../components/ui/toast";
 
 function RegisterPage() {
   const navigate = useNavigate();
+  const { addToast } = useToast();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -23,9 +25,16 @@ function RegisterPage() {
 
     try {
       await registerRequest({ firstName, lastName, email, password });
+      addToast({
+        title: "Account created",
+        description: "You can now sign in with your new account.",
+        variant: "success",
+      });
       navigate("/login", { state: { registered: true } });
     } catch {
-      setError("Could not create account. The email may already be registered.");
+      const message = "Could not create account. The email may already be registered.";
+      setError(message);
+      addToast({ title: "Registration failed", description: message, variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }

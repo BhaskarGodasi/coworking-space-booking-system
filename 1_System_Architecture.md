@@ -65,8 +65,14 @@
 
 ### ADR-007: Docker & Deployment Strategy
 - **Decision**: Containerized multi-stage builds via Docker Compose. Nginx reverse proxy.
-- **Status**: Accepted
+- **Status**: Superseded (see note below)
 - **Why chosen**: Guarantees environment parity. Easy vertical scaling on a single VPS or deployment to managed container services (ECS/K8s).
+- **Superseded by**: The Nginx reverse-proxy design was later replaced by a
+  single combined container for Render deployment -- Express serves both
+  the API and the built React frontend directly, with no Nginx in the
+  image. Kept here as the historical record of the original decision; see
+  [RENDER_DEPLOYMENT.md](RENDER_DEPLOYMENT.md) and `4_Docker_DevOps.md` for
+  the current architecture and its own superseded-section note.
 
 ---
 
