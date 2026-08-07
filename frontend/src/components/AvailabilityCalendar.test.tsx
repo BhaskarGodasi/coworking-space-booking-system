@@ -138,7 +138,10 @@ describe("AvailabilityCalendar", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("Booked")).toBeInTheDocument();
+      // Both the day-status badge and the per-slot list label read "Booked"
+      // (see AvailabilityCalendar.tsx) -- assert at least one is present
+      // rather than assuming there's exactly one.
+      expect(screen.getAllByText("Booked").length).toBeGreaterThan(0);
     });
   });
 
@@ -158,7 +161,9 @@ describe("AvailabilityCalendar", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("Maintenance")).toBeInTheDocument();
+      // Both the day-status badge and the per-slot list label read
+      // "Maintenance" -- assert at least one is present.
+      expect(screen.getAllByText("Maintenance").length).toBeGreaterThan(0);
     });
   });
 });

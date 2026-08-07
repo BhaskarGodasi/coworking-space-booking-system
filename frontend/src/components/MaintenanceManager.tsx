@@ -14,6 +14,8 @@ import { Skeleton } from "./ui/skeleton";
 import { ErrorState } from "./common/ErrorState";
 import { EmptyState } from "./common/EmptyState";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { ConfirmDialog } from "./common/ConfirmDialog";
+import { useToast } from "./ui/toast";
 
 function toIsoWithOffset(dateValue: string, timeValue: string) {
   return new Date(`${dateValue}T${timeValue}:00`).toISOString();
@@ -30,6 +32,8 @@ function MaintenanceManager() {
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [reason, setReason] = useState("");
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const { addToast } = useToast();
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -42,6 +46,7 @@ function MaintenanceManager() {
       },
       {
         onSuccess: () => {
+          addToast({ title: "Maintenance window created", variant: "success" });
           setDate("");
           setStartTime("");
           setEndTime("");
@@ -49,6 +54,23 @@ function MaintenanceManager() {
         },
       },
     );
+  }
+
+  function confirmDelete() {
+    if (!deleteTargetId) return;
+    deleteMaintenance.mutate(deleteTargetId, {
+      onSuccess: () => {
+        addToast({ title: "Maintenance window removed", variant: "success" });
+        setDeleteTargetId(null);
+      },
+      onError: () => {
+        addToast({
+          title: "Could not remove maintenance window",
+          description: "Please try again.",
+          variant: "destructive",
+        });
+      },
+    });
   }
 
   const spaceNameById = new Map((spacesQuery.data?.data ?? []).map((s) => [s.id, s.name]));
@@ -224,7 +246,7 @@ function MaintenanceManager() {
                           size="icon"
                           className="text-destructive hover:text-destructive hover:bg-destructive/10"
                           disabled={deleteMaintenance.isPending}
-                          onClick={() => deleteMaintenance.mutate(window.id)}
+                          onClick={() => setDeleteTargetId(window.id)}
                           title="Remove maintenance window"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -238,6 +260,17 @@ function MaintenanceManager() {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={deleteTargetId !== null}
+        onOpenChange={(open) => !open && setDeleteTargetId(null)}
+        title="Remove this maintenance window?"
+        description="The space will become bookable for this time slot again."
+        confirmLabel="Remove"
+        destructive
+        isConfirming={deleteMaintenance.isPending}
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 }

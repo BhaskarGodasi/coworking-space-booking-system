@@ -9,6 +9,7 @@ import AdminDashboardPage from "./pages/AdminDashboardPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
+import GuestRoute from "./components/GuestRoute";
 import { useSessionRestore } from "./hooks/useSessionRestore";
 import { MainLayout } from "./components/layout/MainLayout";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
@@ -27,8 +28,22 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/spaces" element={<SpaceListPage />} />
           <Route path="/spaces/:id" element={<SpaceDetailsPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
+          <Route
+            path="/login"
+            element={
+              <GuestRoute>
+                <LoginPage />
+              </GuestRoute>
+            }
+          />
+          <Route
+            path="/register"
+            element={
+              <GuestRoute>
+                <RegisterPage />
+              </GuestRoute>
+            }
+          />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
 

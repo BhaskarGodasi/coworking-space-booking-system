@@ -1,20 +1,20 @@
 import * as React from "react"
-import { Link, useLocation } from "react-router-dom"
-import { 
-  LayoutDashboard, 
-  Building2, 
-  Calendar, 
-  Wrench, 
-  Settings, 
+import { Link, useLocation, useNavigate } from "react-router-dom"
+import {
+  LayoutDashboard,
+  Building2,
+  Calendar,
+  Wrench,
   LogOut,
-  User,
   PanelLeftClose,
   PanelLeftOpen
 } from "lucide-react"
 
 import { cn } from "../../lib/utils"
 import { Button } from "../ui/button"
+import { ConfirmDialog } from "./ConfirmDialog"
 import { useAuthStore } from "../../store/authStore"
+import { useToast } from "../ui/toast"
 
 interface SidebarProps {
   collapsed: boolean
@@ -24,7 +24,10 @@ interface SidebarProps {
 export function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
   const { user, logout } = useAuthStore()
   const location = useLocation()
-  
+  const navigate = useNavigate()
+  const { addToast } = useToast()
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = React.useState(false)
+
   const isAdmin = user?.role === "ADMIN"
 
   const adminLinks = [
@@ -36,10 +39,16 @@ export function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
 
   const memberLinks = [
     { name: "My Bookings", path: "/dashboard", icon: <Calendar className="h-5 w-5" /> },
-    { name: "Profile", path: "/dashboard/profile", icon: <User className="h-5 w-5" /> },
   ]
 
   const links = isAdmin ? adminLinks : memberLinks
+
+  function handleLogout() {
+    logout()
+    setLogoutConfirmOpen(false)
+    addToast({ title: "Logged out", variant: "default" })
+    navigate("/")
+  }
 
   return (
     <aside 
@@ -91,7 +100,7 @@ export function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
       
       <div className="p-4 border-t shrink-0">
         <button
-          onClick={logout}
+          onClick={() => setLogoutConfirmOpen(true)}
           className={cn(
             "flex w-full items-center gap-3 px-3 py-2 rounded-md text-destructive hover:bg-destructive/10 transition-colors",
             collapsed && "justify-center"
@@ -102,6 +111,16 @@ export function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
           {!collapsed && <span>Logout</span>}
         </button>
       </div>
+
+      <ConfirmDialog
+        open={logoutConfirmOpen}
+        onOpenChange={setLogoutConfirmOpen}
+        title="Log out?"
+        description="You'll need to log in again to access your dashboard and bookings."
+        confirmLabel="Logout"
+        destructive
+        onConfirm={handleLogout}
+      />
     </aside>
   )
 }
